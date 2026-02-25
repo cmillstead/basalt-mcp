@@ -10,6 +10,7 @@ describe("gitLog", () => {
     const result = await handler({ maxCount: 20 });
     expect(result).toContain("initial commit");
     expect(result).toContain("add z variable");
+    expect(result).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("respects maxCount", async () => {

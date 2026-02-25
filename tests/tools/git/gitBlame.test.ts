@@ -10,6 +10,7 @@ describe("gitBlame", () => {
     const result = await handler({ filePath: "file1.ts" });
     expect(result).toContain("const x = 1");
     expect(result).toContain("const z = 3");
+    expect(result).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("includes author info", async () => {

@@ -31,13 +31,14 @@ At least one of `--vault` or `--repo` is required.
 
 ## Testing
 
-193 tests across 12 files. All tests use real temp directories and real symlinks — no fs mocking.
+214 tests across 14 files. All tests use real temp directories and real symlinks — no fs mocking.
 
-- `tests/core/` — Core validation assertions
+- `tests/core/` — Core validation assertions + content boundary tests
 - `tests/tools/obsidian/` — Per-tool unit tests (4 files)
 - `tests/tools/git/` — Per-tool unit tests (4 files + helpers)
 - `tests/security/adversarial.test.ts` — 48 adversarial attack vectors for vault tools
 - `tests/security/adversarial-git.test.ts` — 20 adversarial attack vectors for git tools
+- `tests/security/prompt-injection-defense.test.ts` — 12 indirect prompt injection defense vectors
 - `tests/e2e/smoke.test.ts` — Full MCP JSON-RPC protocol test (spawns real server process)
 
 Run a specific test file: `npx vitest run tests/security/adversarial-git.test.ts`
@@ -57,6 +58,9 @@ These are non-negotiable. Do not weaken or bypass them:
 - **Git tools use `execFileSync` only.** Never use `exec()` or spawn a shell. Never allow user-controlled subcommands.
 - **Git ref names must pass the allowlist pattern.** Never relax `assertSafeRef()`.
 - **Git output must strip the repo path.** Never return raw git output without path replacement.
+- **Untrusted content is always boundary-wrapped.** Every tool returning user content wraps it with `<<<UNTRUSTED_CONTENT_<token>>>` markers via `wrapUntrustedContent()`. Never remove or weaken boundary markers.
+- **Tool descriptions must warn about untrusted content.** Any tool returning user-derived content must include injection warnings in its description string.
+- **JSON envelopes include `_meta.contentTrust`.** JSON-returning tools must include metadata distinguishing trusted from untrusted content.
 
 ## Conventions
 

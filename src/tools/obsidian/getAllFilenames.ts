@@ -13,7 +13,8 @@ import { getVaultPath, assertInsideVault } from "../../core/index.js";
 export const schema = z.object({});
 
 export const description =
-  "List all filenames in the vault, sorted by most recently modified";
+  "List all filenames in the vault, sorted by most recently modified. " +
+  "Returns only filenames (no file content). Output is server-generated and trusted.";
 
 export async function handler(): Promise<string[]> {
   const vaultPath = getVaultPath();

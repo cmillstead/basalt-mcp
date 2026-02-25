@@ -23,6 +23,14 @@ function touch(relativePath: string, content = ""): void {
   fs.writeFileSync(full, content);
 }
 
+function parseText(result: unknown): string {
+  return (result as { content: Array<{ type: string; text: string }> }).content[0].text;
+}
+
+function parseEnvelope(result: unknown): { _meta: Record<string, unknown>; results: unknown } {
+  return JSON.parse(parseText(result));
+}
+
 beforeAll(async () => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "basalt-e2e-"));
 
@@ -70,12 +78,15 @@ describe("e2e smoke test", () => {
     ]);
   });
 
-  it("getAllFilenames returns vault files, excludes dotfiles and symlinks", async () => {
+  it("getAllFilenames returns envelope with trusted metadata", async () => {
     const result = await client.callTool({ name: "getAllFilenames" });
-    const files: string[] = JSON.parse(
-      (result.content as Array<{ type: string; text: string }>)[0].text
-    );
+    const envelope = parseEnvelope(result);
 
+    expect(envelope._meta).toBeDefined();
+    expect(envelope._meta.contentTrust).toBe("trusted");
+    expect(envelope._meta.source).toBe("vault");
+
+    const files = envelope.results as string[];
     expect(files).toContain("notes/hello.md");
     expect(files).toContain("notes/todo.md");
     expect(files).toContain("journal/2024-01-15.md");
@@ -86,16 +97,21 @@ describe("e2e smoke test", () => {
     expect(files.some((f) => f.includes("linked-dir"))).toBe(false);
   });
 
-  it("readMultipleFiles reads by exact name", async () => {
+  it("readMultipleFiles returns envelope with untrusted metadata and boundary markers", async () => {
     const result = await client.callTool({
       name: "readMultipleFiles",
       arguments: { filenames: ["notes/hello.md"] },
     });
-    const data: Record<string, string> = JSON.parse(
-      (result.content as Array<{ type: string; text: string }>)[0].text
-    );
+    const envelope = parseEnvelope(result);
 
-    expect(data["notes/hello.md"]).toBe("# Hello\n\nWorld\n");
+    expect(envelope._meta).toBeDefined();
+    expect(envelope._meta.contentTrust).toBe("untrusted");
+    expect(envelope._meta.source).toBe("vault");
+    expect(envelope._meta.warning).toContain("untrusted");
+
+    const results = envelope.results as Record<string, string>;
+    expect(results["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
+    expect(results["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("readMultipleFiles partial match works", async () => {
@@ -103,11 +119,10 @@ describe("e2e smoke test", () => {
       name: "readMultipleFiles",
       arguments: { filenames: ["hello"] },
     });
-    const data: Record<string, string> = JSON.parse(
-      (result.content as Array<{ type: string; text: string }>)[0].text
-    );
+    const envelope = parseEnvelope(result);
+    const results = envelope.results as Record<string, string>;
 
-    expect(data["notes/hello.md"]).toBe("# Hello\n\nWorld\n");
+    expect(results["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
   });
 
   it("readMultipleFiles returns not found for missing files", async () => {
@@ -115,27 +130,30 @@ describe("e2e smoke test", () => {
       name: "readMultipleFiles",
       arguments: { filenames: ["nonexistent.md"] },
     });
-    const data: Record<string, string> = JSON.parse(
-      (result.content as Array<{ type: string; text: string }>)[0].text
-    );
+    const envelope = parseEnvelope(result);
+    const results = envelope.results as Record<string, string>;
 
-    expect(data["nonexistent.md"]).toBe("[not found]");
+    expect(results["nonexistent.md"]).toBe("[not found]");
   });
 
-  it("getOpenTodos finds unchecked todos, skips checked", async () => {
+  it("getOpenTodos returns envelope with boundary-wrapped text", async () => {
     const result = await client.callTool({ name: "getOpenTodos" });
-    const todos: Array<{ file: string; line: number; text: string }> =
-      JSON.parse(
-        (result.content as Array<{ type: string; text: string }>)[0].text
-      );
+    const envelope = parseEnvelope(result);
 
+    expect(envelope._meta).toBeDefined();
+    expect(envelope._meta.contentTrust).toBe("untrusted");
+
+    const todos = envelope.results as Array<{ file: string; line: number; text: string }>;
     const texts = todos.map((t) => t.text);
-    expect(texts).toContain("Buy milk");
-    expect(texts).toContain("Write tests");
-    expect(texts).not.toContain("Done item");
+    expect(texts.some((t) => t.includes("Buy milk"))).toBe(true);
+    expect(texts.some((t) => t.includes("Write tests"))).toBe(true);
+    expect(texts.some((t) => t.includes("Done item"))).toBe(false);
 
     // No todos from symlinked or dotfile dirs
-    expect(texts).not.toContain("Secret todo");
+    expect(texts.some((t) => t.includes("Secret todo"))).toBe(false);
+
+    // Boundary markers present
+    expect(texts[0]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("updateFileContent creates a new file", async () => {
@@ -146,8 +164,7 @@ describe("e2e smoke test", () => {
         content: "# Created via MCP\n",
       },
     });
-    const text = (result.content as Array<{ type: string; text: string }>)[0]
-      .text;
+    const text = parseText(result);
 
     expect(text).toMatch(/Successfully wrote/);
     expect(
@@ -163,8 +180,7 @@ describe("e2e smoke test", () => {
         content: "malicious",
       },
     });
-    const text = (result.content as Array<{ type: string; text: string }>)[0]
-      .text;
+    const text = parseText(result);
 
     expect(text).toMatch(/dot-prefixed/);
   });
@@ -177,8 +193,7 @@ describe("e2e smoke test", () => {
         content: "#!/bin/sh\nrm -rf /",
       },
     });
-    const text = (result.content as Array<{ type: string; text: string }>)[0]
-      .text;
+    const text = parseText(result);
 
     expect(text).toMatch(/not allowed/);
     expect(fs.existsSync(path.join(tmpDir, "exploit.sh"))).toBe(false);
@@ -198,19 +213,16 @@ describe("e2e smoke test", () => {
       name: "readMultipleFiles",
       arguments: { filenames: ["roundtrip.md"] },
     });
-    const data: Record<string, string> = JSON.parse(
-      (readResult.content as Array<{ type: string; text: string }>)[0].text
-    );
-    expect(data["roundtrip.md"]).toBe(
+    const readEnvelope = parseEnvelope(readResult);
+    const readData = readEnvelope.results as Record<string, string>;
+    expect(readData["roundtrip.md"]).toContain(
       "# Round Trip\n\n- [ ] Verify this works\n"
     );
 
     // Verify todo scanner picks it up
     const todoResult = await client.callTool({ name: "getOpenTodos" });
-    const todos: Array<{ file: string; line: number; text: string }> =
-      JSON.parse(
-        (todoResult.content as Array<{ type: string; text: string }>)[0].text
-      );
-    expect(todos.some((t) => t.text === "Verify this works")).toBe(true);
+    const todoEnvelope = parseEnvelope(todoResult);
+    const todos = todoEnvelope.results as Array<{ file: string; line: number; text: string }>;
+    expect(todos.some((t) => t.text.includes("Verify this works"))).toBe(true);
   });
 });

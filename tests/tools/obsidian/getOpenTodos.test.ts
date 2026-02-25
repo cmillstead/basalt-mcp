@@ -33,8 +33,13 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ file: "tasks.md", line: 2, text: "Buy milk" });
-      expect(result[1]).toEqual({ file: "tasks.md", line: 3, text: "Write tests" });
+      expect(result[0].file).toBe("tasks.md");
+      expect(result[0].line).toBe(2);
+      expect(result[0].text).toContain("Buy milk");
+      expect(result[0].text).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+      expect(result[1].file).toBe("tasks.md");
+      expect(result[1].line).toBe(3);
+      expect(result[1].text).toContain("Write tests");
     });
 
     it("ignores checked todos", async () => {
@@ -46,7 +51,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Open");
+      expect(result[0].text).toContain("Open");
     });
 
     it("scans across multiple files", async () => {
@@ -56,8 +61,8 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       const texts = result.map((t) => t.text);
-      expect(texts).toContain("Task A");
-      expect(texts).toContain("Task B");
+      expect(texts.some((t) => t.includes("Task A"))).toBe(true);
+      expect(texts.some((t) => t.includes("Task B"))).toBe(true);
     });
 
     it("returns correct line numbers", async () => {
@@ -81,9 +86,9 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(3);
-      expect(result[0].text).toBe("Top level");
-      expect(result[1].text).toBe("Indented");
-      expect(result[2].text).toBe("Deep indent");
+      expect(result[0].text).toContain("Top level");
+      expect(result[1].text).toContain("Indented");
+      expect(result[2].text).toContain("Deep indent");
     });
   });
 
@@ -96,7 +101,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("In markdown");
+      expect(result[0].text).toContain("In markdown");
     });
 
     it("returns empty array for empty vault", async () => {
@@ -120,7 +125,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Visible todo");
+      expect(result[0].text).toContain("Visible todo");
     });
 
     it("excludes todos in dotdirs", async () => {
@@ -130,7 +135,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Normal todo");
+      expect(result[0].text).toContain("Normal todo");
     });
 
     it("excludes todos reached through symlinked files", async () => {
@@ -146,7 +151,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Real todo");
+      expect(result[0].text).toContain("Real todo");
 
       fs.rmSync(outsideDir, { recursive: true, force: true });
     });
@@ -161,7 +166,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Real todo");
+      expect(result[0].text).toContain("Real todo");
 
       fs.rmSync(outsideDir, { recursive: true, force: true });
     });
@@ -174,7 +179,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("No newline at end");
+      expect(result[0].text).toContain("No newline at end");
     });
 
     it("ignores malformed checkboxes", async () => {
@@ -192,7 +197,7 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(1);
-      expect(result[0].text).toBe("Valid todo");
+      expect(result[0].text).toContain("Valid todo");
     });
   });
 });

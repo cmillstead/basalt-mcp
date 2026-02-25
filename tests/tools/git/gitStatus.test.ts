@@ -10,6 +10,7 @@ describe("gitStatus", () => {
     const result = await handler();
     // Porcelain v2 with --branch always has header lines
     expect(result).toContain("# branch.oid");
+    expect(result).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("shows untracked files", async () => {

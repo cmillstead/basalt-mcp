@@ -12,11 +12,13 @@ describe("gitDiff", () => {
     const result = await handler({ staged: false });
     expect(result).toContain("file1.ts");
     expect(result).toContain("completely new content");
+    expect(result).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
-  it("returns empty string for clean tree", async () => {
+  it("returns boundary-wrapped empty content for clean tree", async () => {
     const result = await handler({ staged: false });
-    expect(result.trim()).toBe("");
+    expect(result).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+    expect(result).toMatch(/<<<END_UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("shows staged changes with --cached", async () => {

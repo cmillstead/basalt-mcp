@@ -29,7 +29,9 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["notes/hello.md"] });
 
-      expect(result["notes/hello.md"]).toBe("# Hello World");
+      expect(result["notes/hello.md"]).toContain("# Hello World");
+      expect(result["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+      expect(result["notes/hello.md"]).toMatch(/<<<END_UNTRUSTED_CONTENT_[0-9a-f]{32}>>>$/);
     });
 
     it("reads multiple files", async () => {
@@ -38,8 +40,8 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["a.md", "b.md"] });
 
-      expect(result["a.md"]).toBe("content a");
-      expect(result["b.md"]).toBe("content b");
+      expect(result["a.md"]).toContain("content a");
+      expect(result["b.md"]).toContain("content b");
     });
   });
 
@@ -49,7 +51,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["notes/readme.md"] });
 
-      expect(result["Notes/README.md"]).toBe("readme content");
+      expect(result["Notes/README.md"]).toContain("readme content");
     });
   });
 
@@ -60,7 +62,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["2024-01"] });
 
-      expect(result["journal/2024-01-01.md"]).toBe("january");
+      expect(result["journal/2024-01-01.md"]).toContain("january");
     });
 
     it("caps partial matches at 5 results", async () => {
@@ -82,7 +84,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["target"] });
 
-      expect(result["deep/nested/target.md"]).toBe("found it");
+      expect(result["deep/nested/target.md"]).toContain("found it");
       expect(result).not.toHaveProperty("other/path/stuff.md");
     });
   });
@@ -103,7 +105,7 @@ describe("readMultipleFiles", () => {
       const result = await handler({ filenames: ["notes/readme.md"] });
 
       // Exact match should win — not partial match on "readme"
-      expect(result["notes/readme.md"]).toBe("exact");
+      expect(result["notes/readme.md"]).toContain("exact");
       expect(result).not.toHaveProperty("notes/READMORE.md");
     });
 
@@ -114,8 +116,34 @@ describe("readMultipleFiles", () => {
       const result = await handler({ filenames: ["notes/meeting.md"] });
 
       // Should get exact/case match, not partial
-      expect(result["notes/meeting.md"]).toBe("exact case match");
+      expect(result["notes/meeting.md"]).toContain("exact case match");
       expect(result).not.toHaveProperty("notes/meeting-notes.md");
+    });
+  });
+
+  describe("content boundaries", () => {
+    it("uses different tokens for different files", async () => {
+      touch("a.md", "content a");
+      touch("b.md", "content b");
+
+      const result = await handler({ filenames: ["a.md", "b.md"] });
+
+      const tokenA = result["a.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
+      const tokenB = result["b.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
+      expect(tokenA).toBeDefined();
+      expect(tokenB).toBeDefined();
+      expect(tokenA).not.toBe(tokenB);
+    });
+
+    it("does not wrap [not found] results", async () => {
+      const result = await handler({ filenames: ["nonexistent.md"] });
+      expect(result["nonexistent.md"]).toBe("[not found]");
+      expect(result["nonexistent.md"]).not.toContain("UNTRUSTED_CONTENT");
+    });
+
+    it("does not wrap error results", async () => {
+      const result = await handler({ filenames: ["hello\0.md"] });
+      expect(result["hello\0.md"]).not.toContain("UNTRUSTED_CONTENT");
     });
   });
 
