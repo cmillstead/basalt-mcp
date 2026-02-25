@@ -44,7 +44,7 @@ beforeAll(async () => {
 
   transport = new StdioClientTransport({
     command: "node",
-    args: [serverPath, tmpDir],
+    args: [serverPath, "--vault", tmpDir],
     stderr: "pipe",
   });
 
