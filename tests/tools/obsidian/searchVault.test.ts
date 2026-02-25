@@ -256,6 +256,23 @@ describe("searchVault", () => {
       expect(result[0].file).toBe("visible.md");
     });
 
+    it("skips non-text files (binary attachments)", async () => {
+      touch("notes.md", "findme in markdown\n");
+      touch("image.png", "findme in binary\n");
+      touch("data.json", "findme in json\n");
+      touch("readme.txt", "findme in txt\n");
+      touch("board.canvas", '{"findme": "in canvas"}\n');
+
+      const result = await handler({ query: "findme" });
+
+      const files = result.map((m) => m.file);
+      expect(files).toContain("notes.md");
+      expect(files).toContain("board.canvas");
+      expect(files).not.toContain("image.png");
+      expect(files).not.toContain("data.json");
+      expect(files).not.toContain("readme.txt");
+    });
+
     it("excludes symlinked files from search", async () => {
       touch("real.md", "findme in real\n");
 

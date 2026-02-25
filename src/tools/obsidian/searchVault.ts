@@ -92,12 +92,19 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
   // 4. Get all filenames (inherits symlink/dotfile exclusion)
   const allFiles = await getAllFilenames();
 
-  // 5. Filter by folder
-  const filesToSearch = folderPrefix
-    ? allFiles.filter((f) => f.startsWith(folderPrefix!))
-    : allFiles;
+  // 5. Filter to searchable text formats (skip binary attachments)
+  const SEARCHABLE_EXTENSIONS = new Set([".md", ".canvas"]);
+  const textFiles = allFiles.filter((f) => {
+    const ext = path.extname(f).toLowerCase();
+    return SEARCHABLE_EXTENSIONS.has(ext);
+  });
 
-  // 6. Search each file
+  // 6. Filter by folder
+  const filesToSearch = folderPrefix
+    ? textFiles.filter((f) => f.startsWith(folderPrefix!))
+    : textFiles;
+
+  // 7. Search each file
   const matches: SearchMatch[] = [];
   const contextLines = input.contextLines ?? 2;
 
