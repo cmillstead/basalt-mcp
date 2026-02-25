@@ -7,13 +7,10 @@
  */
 
 import path from "node:path";
-import fs from "node:fs";
 import { z } from "zod";
 import {
   getVaultPath,
-  assertInsideVault,
-  assertFileSize,
-  assertNoSymlinkedParents,
+  readSafeFile,
   generateBoundaryToken,
   wrapUntrustedContent,
 } from "../../core/index.js";
@@ -45,15 +42,7 @@ export async function handler(): Promise<TodoItem[]> {
     const absPath = path.resolve(vaultPath, relPath);
 
     try {
-      assertInsideVault(absPath, vaultPath);
-      assertNoSymlinkedParents(absPath, vaultPath);
-
-      const stat = fs.lstatSync(absPath);
-      if (stat.isSymbolicLink()) continue;
-
-      assertFileSize(absPath);
-
-      const content = fs.readFileSync(absPath, "utf-8");
+      const content = readSafeFile(absPath, vaultPath);
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {

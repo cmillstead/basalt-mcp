@@ -86,8 +86,7 @@ export async function handler(input: Input): Promise<string> {
       if (fd !== undefined) fs.closeSync(fd);
     }
 
-    const existed = input.filePath; // path we wrote to
-    return `Successfully wrote ${existed}`;
+    return `Successfully wrote ${input.filePath}`;
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ELOOP") {

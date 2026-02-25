@@ -10,14 +10,11 @@
  */
 
 import path from "node:path";
-import fs from "node:fs";
 import { z } from "zod";
 import {
   getVaultPath,
   assertNoNullBytes,
-  assertInsideVault,
-  assertFileSize,
-  assertNoSymlinkedParents,
+  readSafeFile,
   sanitizeError,
   generateBoundaryToken,
   wrapUntrustedContent,
@@ -43,19 +40,6 @@ export const description =
 
 export type Input = z.infer<typeof schema>;
 
-function readSafe(absPath: string, vaultPath: string): string {
-  assertInsideVault(absPath, vaultPath);
-  assertNoSymlinkedParents(absPath, vaultPath);
-
-  const stat = fs.lstatSync(absPath);
-  if (stat.isSymbolicLink()) {
-    throw new Error("Cannot read symbolic links");
-  }
-
-  assertFileSize(absPath);
-  return fs.readFileSync(absPath, "utf-8");
-}
-
 export async function handler(input: Input): Promise<Record<string, string>> {
   const vaultPath = getVaultPath();
   const allFiles = await getAllFilenames();
@@ -69,7 +53,7 @@ export async function handler(input: Input): Promise<Record<string, string>> {
       const exactMatch = allFiles.find((f) => f === query);
       if (exactMatch) {
         const absPath = path.resolve(vaultPath, exactMatch);
-        results[exactMatch] = wrapUntrustedContent(readSafe(absPath, vaultPath), generateBoundaryToken());
+        results[exactMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         continue;
       }
 
@@ -78,7 +62,7 @@ export async function handler(input: Input): Promise<Record<string, string>> {
       const caseMatch = allFiles.find((f) => f.toLowerCase() === queryLower);
       if (caseMatch) {
         const absPath = path.resolve(vaultPath, caseMatch);
-        results[caseMatch] = wrapUntrustedContent(readSafe(absPath, vaultPath), generateBoundaryToken());
+        results[caseMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         continue;
       }
 
@@ -98,7 +82,7 @@ export async function handler(input: Input): Promise<Record<string, string>> {
       for (const match of partialMatches) {
         const absPath = path.resolve(vaultPath, match);
         try {
-          results[match] = wrapUntrustedContent(readSafe(absPath, vaultPath), generateBoundaryToken());
+          results[match] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         } catch (err) {
           results[match] = sanitizeError(err, "Failed to read file");
         }

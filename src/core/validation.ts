@@ -99,6 +99,24 @@ export function assertFileSize(filePath: string): void {
   }
 }
 
+/**
+ * Safely read a file after validating containment, symlinks, and size.
+ * Throws on symlinks, vault escape, or oversized files.
+ * Used by readMultipleFiles, getOpenTodos, and searchVault.
+ */
+export function readSafeFile(absPath: string, basePath: string): string {
+  assertInsideVault(absPath, basePath);
+  assertNoSymlinkedParents(absPath, basePath);
+
+  const stat = fs.lstatSync(absPath);
+  if (stat.isSymbolicLink()) {
+    throw new ValidationError("Cannot read symbolic links");
+  }
+
+  assertFileSize(absPath);
+  return fs.readFileSync(absPath, "utf-8");
+}
+
 export {
   ALLOWED_EXTENSIONS,
   MAX_PATH_LENGTH,

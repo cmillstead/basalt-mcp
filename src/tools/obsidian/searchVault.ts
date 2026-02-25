@@ -7,18 +7,16 @@
  */
 
 import path from "node:path";
-import fs from "node:fs";
 import { z } from "zod";
 import {
   getVaultPath,
   ValidationError,
+  ALLOWED_EXTENSIONS,
   assertNoNullBytes,
   assertNoDotPaths,
   assertPathLimits,
   assertInsideVault,
-  assertNoSymlinkedParents,
-  assertFileSize,
-  sanitizeError,
+  readSafeFile,
   generateBoundaryToken,
   wrapUntrustedContent,
 } from "../../core/index.js";
@@ -84,8 +82,8 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
     const absFolder = path.resolve(vaultPath, input.folder);
     assertInsideVault(absFolder, vaultPath);
     folderPrefix = path.relative(vaultPath, absFolder);
-    if (!folderPrefix.endsWith(path.sep)) {
-      folderPrefix += path.sep;
+    if (!folderPrefix.endsWith("/")) {
+      folderPrefix += "/";
     }
   }
 
@@ -93,11 +91,9 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
   const allFiles = await getAllFilenames();
 
   // 5. Filter to searchable text formats (skip binary attachments)
-  const SEARCHABLE_EXTENSIONS = new Set([".md", ".canvas"]);
-  const textFiles = allFiles.filter((f) => {
-    const ext = path.extname(f).toLowerCase();
-    return SEARCHABLE_EXTENSIONS.has(ext);
-  });
+  const textFiles = allFiles.filter((f) =>
+    ALLOWED_EXTENSIONS.has(path.extname(f).toLowerCase())
+  );
 
   // 6. Filter by folder
   const filesToSearch = folderPrefix
@@ -114,15 +110,7 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
     const absPath = path.resolve(vaultPath, relPath);
 
     try {
-      assertInsideVault(absPath, vaultPath);
-      assertNoSymlinkedParents(absPath, vaultPath);
-
-      const stat = fs.lstatSync(absPath);
-      if (stat.isSymbolicLink()) continue;
-
-      assertFileSize(absPath);
-
-      const content = fs.readFileSync(absPath, "utf-8");
+      const content = readSafeFile(absPath, vaultPath);
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {

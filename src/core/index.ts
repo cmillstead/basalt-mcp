@@ -8,6 +8,7 @@ export {
   assertInsideVault,
   assertNoSymlinkedParents,
   assertFileSize,
+  readSafeFile,
   ALLOWED_EXTENSIONS,
   MAX_PATH_LENGTH,
   MAX_DIRECTORY_DEPTH,
