@@ -27,6 +27,7 @@ export function sanitizeError(error: unknown, fallback: string): string {
   }
 
   // Log the real error for debugging, return generic message
-  console.error("[basalt-mcp]", error);
+  const detail = error instanceof Error ? error.message : String(error);
+  console.error(`[basalt-mcp] ${fallback}: ${detail}`);
   return fallback;
 }

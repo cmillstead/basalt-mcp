@@ -167,7 +167,7 @@ All git output is processed before returning:
 - The absolute repo path is replaced with `.` to prevent information leakage
 - Output is capped at 100KB (`maxBuffer`) to prevent memory exhaustion
 - Commands have a 10-second timeout to prevent hanging
-- Errors go through `sanitizeError()` — never leak raw error details
+- Errors throw a generic message — never leak raw git stderr to the AI
 
 ### Git config hardening
 
@@ -219,6 +219,7 @@ Everything else  → log to stderr, return "Failed to write file"
 | Filenames per read request | 50 | Zod schema (`z.array().max(50)`) |
 | Partial match results per query | 5 | Handler-level cap |
 | Search matches per query | 20 | Handler-level cap |
+| File list cache TTL | 2 seconds | getAllFilenames handler |
 
 ## Logging
 

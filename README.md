@@ -113,7 +113,7 @@ See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and 
 ## Development
 
 ```bash
-npm test            # run all 335 tests
+npm test            # run all 339 tests
 npm run test:watch  # watch mode
 npm run lint        # type-check without emitting
 npm run dev         # watch mode compilation

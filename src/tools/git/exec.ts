@@ -14,7 +14,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { getRepoPath, sanitizeError } from "../../core/index.js";
+import { getRepoPath } from "../../core/index.js";
 
 const MAX_OUTPUT_BYTES = 100 * 1024; // 100KB
 
@@ -95,6 +95,6 @@ export function gitExec(args: string[]): string {
       }
     }
 
-    throw new Error(sanitizeError(err, "Git command failed"));
+    throw new Error("Git command failed");
   }
 }

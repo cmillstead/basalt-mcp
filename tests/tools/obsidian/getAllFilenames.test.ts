@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { initVault } from "../../../src/core/index.js";
-import { handler } from "../../../src/tools/obsidian/getAllFilenames.js";
+import { handler, clearCache } from "../../../src/tools/obsidian/getAllFilenames.js";
 
 let tmpDir: string;
 
@@ -20,6 +20,7 @@ function touchWithMtime(relativePath: string, mtime: Date): void {
 }
 
 beforeEach(() => {
+  clearCache();
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "basalt-test-"));
   initVault(tmpDir);
 });
@@ -111,5 +112,46 @@ describe("getAllFilenames", () => {
 
     expect(result).toContain("a/b/c/deep.md");
     expect(result).toContain("top.md");
+  });
+
+  it("returns cached results on rapid successive calls", async () => {
+    touch("file.md", "content");
+
+    const result1 = await handler();
+    // Add a file after the first call — cache should still return old results
+    touch("new-file.md", "new");
+    const result2 = await handler();
+
+    expect(result1).toEqual(result2);
+    expect(result2).not.toContain("new-file.md");
+  });
+
+  it("returns fresh results after clearCache()", async () => {
+    touch("file.md", "content");
+    await handler();
+
+    touch("new-file.md", "new");
+    clearCache();
+    const result = await handler();
+
+    expect(result).toContain("new-file.md");
+  });
+
+  it("invalidates cache when vault path changes", async () => {
+    touch("original.md");
+    await handler();
+
+    // Switch to a different vault
+    const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), "basalt-test-other-"));
+    fs.writeFileSync(path.join(otherDir, "other.md"), "other");
+    initVault(otherDir);
+
+    const result = await handler();
+    expect(result).toContain("other.md");
+    expect(result).not.toContain("original.md");
+
+    // Restore original vault for afterEach cleanup
+    initVault(tmpDir);
+    fs.rmSync(otherDir, { recursive: true, force: true });
   });
 });
