@@ -105,12 +105,12 @@ The server treats every tool call as potentially hostile.
 - **Path validation** — blame file paths go through null byte check, vault containment, and symlink walk
 - **Output sanitization** — repo path stripped from all output, 100KB output cap, 10s timeout
 
-See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 80 tested attack vectors.
+See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 85 tested attack vectors.
 
 ## Development
 
 ```bash
-npm test            # run all 214 tests
+npm test            # run all 219 tests
 npm run test:watch  # watch mode
 npm run lint        # type-check without emitting
 npm run dev         # watch mode compilation

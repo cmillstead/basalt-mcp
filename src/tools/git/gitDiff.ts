@@ -28,7 +28,7 @@ export const description =
 export type Input = z.infer<typeof schema>;
 
 export async function handler(input: Input): Promise<string> {
-  const args = ["diff"];
+  const args = ["diff", "--no-ext-diff", "--no-textconv"];
 
   if (input.ref) {
     assertSafeRef(input.ref);

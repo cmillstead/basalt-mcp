@@ -31,13 +31,13 @@ At least one of `--vault` or `--repo` is required.
 
 ## Testing
 
-214 tests across 14 files. All tests use real temp directories and real symlinks — no fs mocking.
+219 tests across 14 files. All tests use real temp directories and real symlinks — no fs mocking.
 
 - `tests/core/` — Core validation assertions + content boundary tests
 - `tests/tools/obsidian/` — Per-tool unit tests (4 files)
 - `tests/tools/git/` — Per-tool unit tests (4 files + helpers)
 - `tests/security/adversarial.test.ts` — 48 adversarial attack vectors for vault tools
-- `tests/security/adversarial-git.test.ts` — 20 adversarial attack vectors for git tools
+- `tests/security/adversarial-git.test.ts` — 25 adversarial attack vectors for git tools (including git config code execution)
 - `tests/security/prompt-injection-defense.test.ts` — 12 indirect prompt injection defense vectors
 - `tests/e2e/smoke.test.ts` — Full MCP JSON-RPC protocol test (spawns real server process)
 
@@ -55,7 +55,7 @@ These are non-negotiable. Do not weaken or bypass them:
 - **All logging uses stderr.** stdout is reserved for MCP JSON-RPC. Never use `console.log`.
 - **Vault path is immutable after startup.** Access via `getVaultPath()` only.
 - **Repo path is immutable after startup.** Access via `getRepoPath()` only.
-- **Git tools use `execFileSync` only.** Never use `exec()` or spawn a shell. Never allow user-controlled subcommands.
+- **Git tools use `execFileSync` only.** Never use `exec()` or spawn a shell. Never allow user-controlled subcommands. All commands include `-c` overrides to neutralize malicious `.git/config` options (core.fsmonitor, diff.external, etc.).
 - **Git ref names must pass the allowlist pattern.** Never relax `assertSafeRef()`.
 - **Git output must strip the repo path.** Never return raw git output without path replacement.
 - **Untrusted content is always boundary-wrapped.** Every tool returning user content wraps it with `<<<UNTRUSTED_CONTENT_<token>>>` markers via `wrapUntrustedContent()`. Never remove or weaken boundary markers.

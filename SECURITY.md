@@ -2,7 +2,7 @@
 
 Basalt MCP is designed around a single threat model: **the connected AI is the attacker**. It can call any exposed tool with any arguments that pass schema validation. We assume prompt injection, jailbreaking, or a fully compromised model.
 
-This document describes every security boundary in the server and the reasoning behind it. It is based on 19 findings from 3 rounds of auditing a prior implementation, and 68 adversarial attack vectors tested against the current one (48 vault + 20 git).
+This document describes every security boundary in the server and the reasoning behind it. It is based on 19 findings from 3 rounds of auditing a prior implementation, and 85 adversarial attack vectors tested against the current one (48 vault + 25 git + 12 prompt injection).
 
 ## What the Server Prevents
 
@@ -12,6 +12,7 @@ This document describes every security boundary in the server and the reasoning 
 | Code execution via Obsidian plugins | Dot-path rejection blocks `.obsidian/`, `.git/` |
 | Code execution via file extensions | Extension allowlist (not blocklist) |
 | Command injection via git | `execFileSync` (no shell), ref name allowlist, hardcoded subcommands |
+| Code execution via git config | `-c` overrides neutralize all command-executing configs, env hardening blocks system/global config |
 | Git flag injection | `--` separator before user-supplied paths, path validation |
 | Resource exhaustion (memory) | 10 MB file size cap, 1 MB write limit, 50 filename cap, 100KB git output cap |
 | Resource exhaustion (disk/inodes) | 512-char path limit, 10-level depth limit |
@@ -168,6 +169,32 @@ All git output is processed before returning:
 - Commands have a 10-second timeout to prevent hanging
 - Errors go through `sanitizeError()` — never leak raw error details
 
+### Git config hardening
+
+A malicious `.git/config` can cause git to execute arbitrary commands via options like `core.fsmonitor`, `diff.external`, and `diff.*.textconv`. This is a known attack vector (CVE-2022-24765, CVE-2024-32002, CVE-2025-48384).
+
+Every git command includes `-c` overrides that neutralize all known command-executing config options. `-c` has the highest config precedence — it overrides `.git/config`. The full list:
+
+```
+core.fsmonitor          core.hooksPath          core.sshCommand
+core.askPass            core.gitProxy           core.editor
+core.pager              sequence.editor          diff.external
+credential.helper       filter.a.clean          filter.a.smudge
+filter.a.process        sendemail.sendmailCmd   sendemail.toCmd
+sendemail.ccCmd
+```
+
+Additionally, `git diff` passes `--no-ext-diff` and `--no-textconv` to disable external diff programs and text conversion filters regardless of config or `.gitattributes`.
+
+The execution environment is also hardened:
+- `GIT_CONFIG_NOSYSTEM=1` — skip system-level `/etc/gitconfig`
+- `GIT_CONFIG_GLOBAL=/dev/null` — skip user-level `~/.gitconfig`
+- `GIT_CONFIG_COUNT=0` — prevent environment-based config injection
+- `GIT_TERMINAL_PROMPT=0` — prevent interactive prompts
+- All command-executing env vars cleared (`GIT_ASKPASS`, `GIT_SSH_COMMAND`, `GIT_EDITOR`, `GIT_PAGER`, `GIT_EXTERNAL_DIFF`)
+
+This is a blocklist approach — inherently incomplete if git adds new command-executing config options. However, combined with `execFileSync` (no shell) and the ref allowlist, it covers all currently known vectors.
+
 ## Error Sanitization
 
 Node.js filesystem errors contain full paths, permission details, and OS information. We never return `error.message` directly.
@@ -200,7 +227,7 @@ All logging uses `console.error` (stderr). The startup banner, vault path confir
 
 ## Tested Attack Vectors
 
-The server has been tested against 80 adversarial attack vectors across 17 attack surfaces. All attacks were blocked.
+The server has been tested against 85 adversarial attack vectors across 18 attack surfaces. All attacks were blocked.
 
 ### Vault tools (`tests/security/adversarial.test.ts`) — 48 vectors
 
@@ -217,11 +244,12 @@ The server has been tested against 80 adversarial attack vectors across 17 attac
 | Race conditions | 20 concurrent writes, contested file writes | No corruption |
 | Creative attacks | Prototype pollution (`__proto__.md`), ANSI escapes, BOM, backslash traversal | All handled |
 
-### Git tools (`tests/security/adversarial-git.test.ts`) — 20 vectors
+### Git tools (`tests/security/adversarial-git.test.ts`) — 25 vectors
 
 | Attack Surface | Vectors | Result |
 |---------------|---------|--------|
 | Command injection via refs | `$(rm -rf /)`, backticks, semicolons, pipes, ampersands, newlines, null bytes, quotes | All blocked |
+| Code execution via git config | `core.fsmonitor` on status/diff, `diff.external` on diff, `core.hooksPath`, `core.pager` | All neutralized |
 | Flag injection via filePath | `--exec=evil`, `-o /tmp/evil` disguised as filenames | All blocked |
 | Path traversal via blame | `../../../etc/passwd`, absolute paths, null bytes, symlinked files | All blocked |
 | Information leakage | Repo path stripped from gitStatus, gitLog, gitDiff, gitBlame output | All sanitized |

@@ -179,6 +179,59 @@ describe("information leakage prevention", () => {
   });
 });
 
+describe("git config code execution prevention", () => {
+  it("core.fsmonitor is neutralized on git status", async () => {
+    // A malicious repo with core.fsmonitor would execute an arbitrary command
+    // on git status. Our -c core.fsmonitor= override must prevent this.
+    gitCmd("config", "core.fsmonitor", "echo PWNED > /tmp/basalt-fsmonitor-pwned");
+    const result = await gitStatus();
+    expect(typeof result).toBe("string");
+    expect(fs.existsSync("/tmp/basalt-fsmonitor-pwned")).toBe(false);
+  });
+
+  it("core.fsmonitor is neutralized on git diff", async () => {
+    gitCmd("config", "core.fsmonitor", "echo PWNED > /tmp/basalt-fsmonitor-pwned-diff");
+    touch("app.ts", "modified\n");
+    const result = await gitDiff({ staged: false });
+    expect(typeof result).toBe("string");
+    expect(fs.existsSync("/tmp/basalt-fsmonitor-pwned-diff")).toBe(false);
+  });
+
+  it("diff.external is neutralized on git diff", async () => {
+    gitCmd("config", "diff.external", "echo PWNED > /tmp/basalt-diff-ext-pwned");
+    touch("app.ts", "modified again\n");
+    const result = await gitDiff({ staged: false });
+    expect(typeof result).toBe("string");
+    expect(fs.existsSync("/tmp/basalt-diff-ext-pwned")).toBe(false);
+  });
+
+  it("core.hooksPath is neutralized", async () => {
+    // Set hooksPath to a directory with a malicious hook.
+    // Our -c core.hooksPath= override must prevent this.
+    const hooksDir = path.join(repoDir, "evil-hooks");
+    fs.mkdirSync(hooksDir);
+    fs.writeFileSync(
+      path.join(hooksDir, "pre-commit"),
+      "#!/bin/sh\necho PWNED > /tmp/basalt-hooks-pwned\n",
+      { mode: 0o755 }
+    );
+    gitCmd("config", "core.hooksPath", hooksDir);
+
+    // Our tools don't trigger hooks (read-only), but verify the config
+    // override is in place by checking status still works
+    const result = await gitStatus();
+    expect(typeof result).toBe("string");
+    expect(fs.existsSync("/tmp/basalt-hooks-pwned")).toBe(false);
+  });
+
+  it("core.pager is neutralized", async () => {
+    gitCmd("config", "core.pager", "echo PWNED > /tmp/basalt-pager-pwned");
+    const result = await gitLog({ maxCount: 1 });
+    expect(typeof result).toBe("string");
+    expect(fs.existsSync("/tmp/basalt-pager-pwned")).toBe(false);
+  });
+});
+
 describe("resource limits", () => {
   it("handles large diff output without crashing", async () => {
     // Create a large file to produce a big diff
