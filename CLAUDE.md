@@ -7,7 +7,7 @@ Basalt MCP is a security-hardened MCP server with two independent tool modules: 
 ## Architecture
 
 - `src/core/` — Shared security framework (validation, vault path, repo path, error sanitization)
-- `src/tools/obsidian/` — Obsidian vault tool module (getAllFilenames, readMultipleFiles, getOpenTodos, updateFileContent)
+- `src/tools/obsidian/` — Obsidian vault tool module (getAllFilenames, readMultipleFiles, getOpenTodos, updateFileContent, searchVault, appendToFile, listFiles)
 - `src/tools/git/` — Git tool module (gitStatus, gitLog, gitDiff, gitBlame) — read-only, no mutations
 - `src/index.ts` — Server entrypoint, `--vault`/`--repo` flag parsing, conditional tool registration
 
@@ -31,14 +31,14 @@ At least one of `--vault` or `--repo` is required.
 
 ## Testing
 
-219 tests across 14 files. All tests use real temp directories and real symlinks — no fs mocking.
+335 tests across 17 files. All tests use real temp directories and real symlinks — no fs mocking.
 
 - `tests/core/` — Core validation assertions + content boundary tests
-- `tests/tools/obsidian/` — Per-tool unit tests (4 files)
+- `tests/tools/obsidian/` — Per-tool unit tests (7 files)
 - `tests/tools/git/` — Per-tool unit tests (4 files + helpers)
-- `tests/security/adversarial.test.ts` — 48 adversarial attack vectors for vault tools
+- `tests/security/adversarial.test.ts` — 78 adversarial attack vectors for vault tools
 - `tests/security/adversarial-git.test.ts` — 25 adversarial attack vectors for git tools (including git config code execution)
-- `tests/security/prompt-injection-defense.test.ts` — 12 indirect prompt injection defense vectors
+- `tests/security/prompt-injection-defense.test.ts` — 15 indirect prompt injection defense vectors
 - `tests/e2e/smoke.test.ts` — Full MCP JSON-RPC protocol test (spawns real server process)
 
 Run a specific test file: `npx vitest run tests/security/adversarial-git.test.ts`

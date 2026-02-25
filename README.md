@@ -12,6 +12,9 @@ A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) s
 | `readMultipleFiles` | Read files by exact, case-insensitive, or partial name match |
 | `getOpenTodos` | Find all unchecked todo items (`- [ ]`) across markdown files |
 | `updateFileContent` | Create or update files (9-step write validation chain) |
+| `searchVault` | Search vault files by content (plain text or regex) with context snippets |
+| `appendToFile` | Append content to an existing file (no file creation) |
+| `listFiles` | List vault files filtered by folder and/or extension |
 
 ### Git Tools (`--repo`)
 
@@ -96,21 +99,21 @@ The server treats every tool call as potentially hostile.
 - **Extension allowlist** — only `.md`, `.txt`, `.csv`, `.json`, `.yaml`, `.yml`, `.canvas`
 - **3-layer symlink defense** — glob-level exclusion, parent directory walk, kernel-level `O_NOFOLLOW`
 - **Error sanitization** — never leaks system paths or OS details
-- **Resource limits** — 10 MB read cap, 1 MB write cap, 50 filenames per request, 5 partial match results
+- **Resource limits** — 10 MB read cap, 1 MB write cap, 50 filenames per request, 5 partial match results, 20 search match cap
 
 **Git tools** — all git execution is sandboxed to the repo directory:
 
 - **`execFileSync` only** — no shell, no command injection possible
 - **Ref name allowlist** — rejects shell metacharacters, backticks, `$()`, pipes, semicolons
-- **Path validation** — blame file paths go through null byte check, vault containment, and symlink walk
+- **Path validation** — blame file paths go through null byte check, repo containment, and symlink walk
 - **Output sanitization** — repo path stripped from all output, 100KB output cap, 10s timeout
 
-See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 85 tested attack vectors.
+See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 118 tested attack vectors.
 
 ## Development
 
 ```bash
-npm test            # run all 219 tests
+npm test            # run all 335 tests
 npm run test:watch  # watch mode
 npm run lint        # type-check without emitting
 npm run dev         # watch mode compilation
@@ -125,13 +128,17 @@ src/
 │   ├── validation.ts           Assertion functions (7)
 │   ├── vault.ts                Immutable vault path management
 │   ├── repo.ts                 Immutable repo path management + git validation
+│   ├── contentBoundary.ts      Boundary markers for untrusted content (spotlighting)
 │   └── errors.ts               Error sanitization
 └── tools/
     ├── obsidian/               Obsidian vault tool module
     │   ├── getAllFilenames.ts
     │   ├── readMultipleFiles.ts
     │   ├── getOpenTodos.ts
-    │   └── updateFileContent.ts
+    │   ├── updateFileContent.ts
+    │   ├── searchVault.ts
+    │   ├── appendToFile.ts
+    │   └── listFiles.ts
     └── git/                    Git tool module
         ├── exec.ts             Safe git execution helper
         ├── gitStatus.ts

@@ -71,9 +71,12 @@ describe("e2e smoke test", () => {
     const names = tools.map((t) => t.name).sort();
 
     expect(names).toEqual([
+      "appendToFile",
       "getAllFilenames",
       "getOpenTodos",
+      "listFiles",
       "readMultipleFiles",
+      "searchVault",
       "updateFileContent",
     ]);
   });
@@ -224,5 +227,130 @@ describe("e2e smoke test", () => {
     const todoEnvelope = parseEnvelope(todoResult);
     const todos = todoEnvelope.results as Array<{ file: string; line: number; text: string }>;
     expect(todos.some((t) => t.text.includes("Verify this works"))).toBe(true);
+  });
+
+  // ── searchVault ──────────────────────────────────────────
+
+  it("searchVault finds content and returns untrusted envelope", async () => {
+    const result = await client.callTool({
+      name: "searchVault",
+      arguments: { query: "Buy milk" },
+    });
+    const envelope = parseEnvelope(result);
+
+    expect(envelope._meta.contentTrust).toBe("untrusted");
+    expect(envelope._meta.source).toBe("vault");
+    expect(envelope._meta.warning).toContain("untrusted");
+
+    const matches = envelope.results as Array<{ file: string; line: number; context: string }>;
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0].file).toBe("notes/todo.md");
+    expect(matches[0].context).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+  });
+
+  it("searchVault filters by folder", async () => {
+    const result = await client.callTool({
+      name: "searchVault",
+      arguments: { query: "good day", folder: "journal" },
+    });
+    const envelope = parseEnvelope(result);
+    const matches = envelope.results as Array<{ file: string; line: number; context: string }>;
+
+    expect(matches.length).toBe(1);
+    expect(matches[0].file).toBe("journal/2024-01-15.md");
+  });
+
+  it("searchVault returns empty for no matches", async () => {
+    const result = await client.callTool({
+      name: "searchVault",
+      arguments: { query: "xyzzy_nonexistent_string" },
+    });
+    const envelope = parseEnvelope(result);
+    const matches = envelope.results as Array<unknown>;
+    expect(matches).toHaveLength(0);
+  });
+
+  // ── appendToFile ─────────────────────────────────────────
+
+  it("appendToFile appends to existing file", async () => {
+    const result = await client.callTool({
+      name: "appendToFile",
+      arguments: {
+        filePath: "notes/hello.md",
+        content: "Appended line\n",
+      },
+    });
+    const text = parseText(result);
+    expect(text).toMatch(/Successfully appended/);
+
+    const content = fs.readFileSync(path.join(tmpDir, "notes/hello.md"), "utf-8");
+    expect(content).toContain("# Hello");
+    expect(content).toContain("Appended line");
+  });
+
+  it("appendToFile rejects non-existent files", async () => {
+    const result = await client.callTool({
+      name: "appendToFile",
+      arguments: {
+        filePath: "does-not-exist.md",
+        content: "test",
+      },
+    });
+    const text = parseText(result);
+    expect(text).toMatch(/does not exist/i);
+  });
+
+  it("appendToFile rejects dotpath writes", async () => {
+    const result = await client.callTool({
+      name: "appendToFile",
+      arguments: {
+        filePath: ".obsidian/config.json",
+        content: "evil",
+      },
+    });
+    const text = parseText(result);
+    expect(text).toMatch(/dot-prefixed/);
+  });
+
+  // ── listFiles ────────────────────────────────────────────
+
+  it("listFiles returns trusted envelope", async () => {
+    const result = await client.callTool({
+      name: "listFiles",
+      arguments: {},
+    });
+    const envelope = parseEnvelope(result);
+
+    expect(envelope._meta.contentTrust).toBe("trusted");
+    expect(envelope._meta.source).toBe("vault");
+
+    const files = envelope.results as string[];
+    expect(files).toContain("notes/hello.md");
+    expect(files).toContain("data.json");
+  });
+
+  it("listFiles filters by folder", async () => {
+    const result = await client.callTool({
+      name: "listFiles",
+      arguments: { folder: "notes" },
+    });
+    const envelope = parseEnvelope(result);
+    const files = envelope.results as string[];
+
+    expect(files.every((f) => f.startsWith("notes/"))).toBe(true);
+    expect(files).toContain("notes/hello.md");
+    expect(files).not.toContain("data.json");
+  });
+
+  it("listFiles filters by extension", async () => {
+    const result = await client.callTool({
+      name: "listFiles",
+      arguments: { extension: ".json" },
+    });
+    const envelope = parseEnvelope(result);
+    const files = envelope.results as string[];
+
+    expect(files.every((f) => f.endsWith(".json"))).toBe(true);
+    expect(files).toContain("data.json");
   });
 });
