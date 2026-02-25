@@ -2,7 +2,7 @@
 
 Basalt MCP is designed around a single threat model: **the connected AI is the attacker**. It can call any exposed tool with any arguments that pass schema validation. We assume prompt injection, jailbreaking, or a fully compromised model.
 
-This document describes every security boundary in the server and the reasoning behind it. It is based on 19 findings from 3 rounds of auditing a prior implementation, and 48 adversarial attack vectors tested against the current one.
+This document describes every security boundary in the server and the reasoning behind it. It is based on 19 findings from 3 rounds of auditing a prior implementation, and 68 adversarial attack vectors tested against the current one (48 vault + 20 git).
 
 ## What the Server Prevents
 
@@ -11,9 +11,11 @@ This document describes every security boundary in the server and the reasoning 
 | Reading or writing outside the vault | Path normalization, vault containment check, symlink rejection |
 | Code execution via Obsidian plugins | Dot-path rejection blocks `.obsidian/`, `.git/` |
 | Code execution via file extensions | Extension allowlist (not blocklist) |
-| Resource exhaustion (memory) | 10 MB file size cap, 1 MB write limit, 50 filename cap per request |
+| Command injection via git | `execFileSync` (no shell), ref name allowlist, hardcoded subcommands |
+| Git flag injection | `--` separator before user-supplied paths, path validation |
+| Resource exhaustion (memory) | 10 MB file size cap, 1 MB write limit, 50 filename cap, 100KB git output cap |
 | Resource exhaustion (disk/inodes) | 512-char path limit, 10-level depth limit |
-| Information leakage | Error sanitization — never returns raw `error.message` |
+| Information leakage | Error sanitization, repo/vault path stripping from output |
 
 ## Write Validation Chain
 
@@ -116,6 +118,56 @@ assertInsideVault(fullPath, vaultPath):
 
 The `+ path.sep` is critical. Without it, a vault at `/tmp/vault` would pass a file at `/tmp/vault-evil/escape.md` because it starts with `/tmp/vault`.
 
+## Repo Path Handling
+
+The repo path follows the same pattern as the vault path, with an additional git validation step:
+
+1. Same 5-step validation as vault path (resolve, exists, isDirectory, realpath)
+2. `execFileSync("git", ["rev-parse", "--git-dir"])` — confirms it's actually a git repository
+
+The resolved path is stored in module scope and exposed only through `getRepoPath()`. The vault and repo are independent directories with independent immutable getters.
+
+## Git Tool Security
+
+Git tools use a separate security model from vault tools because they don't write files — they only run read-only git commands.
+
+### Command execution
+
+All git commands use `execFileSync("git", [...args])` — **never** `exec()` or a shell. This means:
+- No shell metacharacter interpretation (`$()`, backticks, pipes, semicolons are literal strings)
+- No environment variable expansion
+- No glob expansion
+- Arguments are passed directly to the git binary via `execvp`
+
+Every command runs with `cwd` locked to the repo path and `--no-pager` to prevent hanging.
+
+### Ref name validation
+
+User-supplied git refs (branch names, tags, commit SHAs) are validated against an allowlist pattern:
+
+```
+/^[a-zA-Z0-9_.\\/\-~^@{}:]+$/
+```
+
+This allows standard git ref formats (`HEAD~1`, `origin/main`, `v1.0.0`, `HEAD^2`) while rejecting shell metacharacters, spaces, quotes, null bytes, and command substitution syntax.
+
+### Path validation (gitBlame)
+
+The `filePath` parameter in gitBlame goes through the full path validation chain:
+1. `assertNoNullBytes` — reject null bytes
+2. `path.resolve(repoPath, filePath)` — normalize to absolute
+3. `assertInsideVault(fullPath, repoPath)` — containment check (reuses vault containment logic)
+4. `assertNoSymlinkedParents(fullPath, repoPath)` — reject symlinked parent directories
+5. `--` separator before the file path in the git command — prevents flag injection
+
+### Output sanitization
+
+All git output is processed before returning:
+- The absolute repo path is replaced with `.` to prevent information leakage
+- Output is capped at 100KB (`maxBuffer`) to prevent memory exhaustion
+- Commands have a 10-second timeout to prevent hanging
+- Errors go through `sanitizeError()` — never leak raw error details
+
 ## Error Sanitization
 
 Node.js filesystem errors contain full paths, permission details, and OS information. We never return `error.message` directly.
@@ -148,7 +200,9 @@ All logging uses `console.error` (stderr). The startup banner, vault path confir
 
 ## Tested Attack Vectors
 
-The server has been tested against 48 adversarial attack vectors across 10 attack surfaces. All attacks were blocked. See `tests/security/adversarial.test.ts` for the full suite.
+The server has been tested against 68 adversarial attack vectors across 15 attack surfaces. All attacks were blocked.
+
+### Vault tools (`tests/security/adversarial.test.ts`) — 48 vectors
 
 | Attack Surface | Vectors | Result |
 |---------------|---------|--------|
@@ -162,6 +216,16 @@ The server has been tested against 48 adversarial attack vectors across 10 attac
 | Vault boundary | Prefix trick, root write | All blocked |
 | Race conditions | 20 concurrent writes, contested file writes | No corruption |
 | Creative attacks | Prototype pollution (`__proto__.md`), ANSI escapes, BOM, backslash traversal | All handled |
+
+### Git tools (`tests/security/adversarial-git.test.ts`) — 20 vectors
+
+| Attack Surface | Vectors | Result |
+|---------------|---------|--------|
+| Command injection via refs | `$(rm -rf /)`, backticks, semicolons, pipes, ampersands, newlines, null bytes, quotes | All blocked |
+| Flag injection via filePath | `--exec=evil`, `-o /tmp/evil` disguised as filenames | All blocked |
+| Path traversal via blame | `../../../etc/passwd`, absolute paths, null bytes, symlinked files | All blocked |
+| Information leakage | Repo path stripped from gitStatus, gitLog, gitDiff, gitBlame output | All sanitized |
+| Resource limits | Large diff output (10K lines) handled without crashing | Bounded |
 
 ## Reporting Vulnerabilities
 

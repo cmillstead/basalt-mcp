@@ -2,15 +2,24 @@
 
 ## Project Overview
 
-Basalt MCP is a security-hardened MCP server for Obsidian vaults. The connected AI is treated as the attacker — see SECURITY.md for the full threat model.
+Basalt MCP is a security-hardened MCP server with two independent tool modules: Obsidian vault tools and git tools. The connected AI is treated as the attacker — see SECURITY.md for the full threat model.
 
 ## Architecture
 
-- `src/core/` — Shared security framework (validation, vault path, error sanitization)
+- `src/core/` — Shared security framework (validation, vault path, repo path, error sanitization)
 - `src/tools/obsidian/` — Obsidian vault tool module (getAllFilenames, readMultipleFiles, getOpenTodos, updateFileContent)
-- `src/index.ts` — Server entrypoint, tool registration, stdio transport
+- `src/tools/git/` — Git tool module (gitStatus, gitLog, gitDiff, gitBlame) — read-only, no mutations
+- `src/index.ts` — Server entrypoint, `--vault`/`--repo` flag parsing, conditional tool registration
 
-The core and tools are intentionally separated. New tool modules go under `src/tools/` and inherit the core security layer.
+The vault and repo are independent directories. The vault is a knowledge base (Obsidian markdown), the repo is a code repository (git). Either or both can be provided at startup.
+
+## CLI
+
+```bash
+node dist/index.js --vault <path> --repo <path>
+```
+
+At least one of `--vault` or `--repo` is required.
 
 ## Commands
 
@@ -22,14 +31,16 @@ The core and tools are intentionally separated. New tool modules go under `src/t
 
 ## Testing
 
-148 tests across 7 files. All tests use real temp directories and real symlinks — no fs mocking.
+193 tests across 12 files. All tests use real temp directories and real symlinks — no fs mocking.
 
 - `tests/core/` — Core validation assertions
-- `tests/tools/obsidian/` — Per-tool unit tests
-- `tests/security/adversarial.test.ts` — 48 adversarial attack vectors across 10 attack surfaces
+- `tests/tools/obsidian/` — Per-tool unit tests (4 files)
+- `tests/tools/git/` — Per-tool unit tests (4 files + helpers)
+- `tests/security/adversarial.test.ts` — 48 adversarial attack vectors for vault tools
+- `tests/security/adversarial-git.test.ts` — 20 adversarial attack vectors for git tools
 - `tests/e2e/smoke.test.ts` — Full MCP JSON-RPC protocol test (spawns real server process)
 
-Run a specific test file: `npx vitest run tests/security/adversarial.test.ts`
+Run a specific test file: `npx vitest run tests/security/adversarial-git.test.ts`
 
 ## Security Rules
 
@@ -42,6 +53,10 @@ These are non-negotiable. Do not weaken or bypass them:
 - **Symlink defense has 3 layers** (glob, parent walk, O_NOFOLLOW). All three are needed. Do not remove any.
 - **All logging uses stderr.** stdout is reserved for MCP JSON-RPC. Never use `console.log`.
 - **Vault path is immutable after startup.** Access via `getVaultPath()` only.
+- **Repo path is immutable after startup.** Access via `getRepoPath()` only.
+- **Git tools use `execFileSync` only.** Never use `exec()` or spawn a shell. Never allow user-controlled subcommands.
+- **Git ref names must pass the allowlist pattern.** Never relax `assertSafeRef()`.
+- **Git output must strip the repo path.** Never return raw git output without path replacement.
 
 ## Conventions
 

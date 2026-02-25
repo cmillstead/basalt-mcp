@@ -1,8 +1,10 @@
 # Basalt MCP
 
-A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) server for Obsidian vaults. Built on the assumption that the connected AI is the attacker.
+A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) server with two independent tool modules: **Obsidian vault tools** for managing a knowledge base, and **git tools** for LLM-assisted code review. Built on the assumption that the connected AI is the attacker.
 
 ## Tools
+
+### Obsidian Vault Tools (`--vault`)
 
 | Tool | Description |
 |------|-------------|
@@ -11,12 +13,38 @@ A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) s
 | `getOpenTodos` | Find all unchecked todo items (`- [ ]`) across markdown files |
 | `updateFileContent` | Create or update files (9-step write validation chain) |
 
+### Git Tools (`--repo`)
+
+| Tool | Description |
+|------|-------------|
+| `gitStatus` | Working tree status (staged, unstaged, untracked) |
+| `gitLog` | Commit history with configurable depth |
+| `gitDiff` | Diff output (working tree, staged, or against a ref) |
+| `gitBlame` | Per-line blame for a file |
+
+All git tools are read-only. No mutations (no commit, push, reset, checkout).
+
 ## Quick Start
 
 ```bash
 npm install
 npm run build
 ```
+
+### Usage
+
+```bash
+# Both modules — vault for context, repo for code review
+node dist/index.js --vault /path/to/vault --repo /path/to/repo
+
+# Vault only
+node dist/index.js --vault /path/to/vault
+
+# Repo only
+node dist/index.js --repo /path/to/repo
+```
+
+At least one of `--vault` or `--repo` is required. The vault and repo are independent directories — the vault is a knowledge base (Obsidian), the repo is a code repository (git).
 
 ### Claude Desktop
 
@@ -25,25 +53,44 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "obsidian": {
+    "basalt": {
       "command": "node",
-      "args": ["/absolute/path/to/basalt-mcp/dist/index.js", "/path/to/your/vault"]
+      "args": [
+        "/absolute/path/to/basalt-mcp/dist/index.js",
+        "--vault", "/path/to/your/vault",
+        "--repo", "/path/to/your/repo"
+      ]
     }
   }
 }
 ```
 
-### Direct
+### Cursor
 
-```bash
-node dist/index.js /path/to/your/vault
+Add to `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "basalt": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/basalt-mcp/dist/index.js",
+        "--vault", "/path/to/your/vault",
+        "--repo", "/path/to/your/repo"
+      ]
+    }
+  }
+}
 ```
 
 The server communicates over stdio using the MCP JSON-RPC protocol.
 
 ## Security
 
-The server treats every tool call as potentially hostile. All filesystem access is sandboxed to the vault directory through multiple independent layers:
+The server treats every tool call as potentially hostile.
+
+**Vault tools** — all filesystem access is sandboxed to the vault directory through multiple independent layers:
 
 - **9-step write validation chain** — null bytes, dot-paths, extension allowlist, path limits, vault containment, symlinked parent walk, atomic `O_NOFOLLOW` write
 - **Extension allowlist** — only `.md`, `.txt`, `.csv`, `.json`, `.yaml`, `.yml`, `.canvas`
@@ -51,12 +98,19 @@ The server treats every tool call as potentially hostile. All filesystem access 
 - **Error sanitization** — never leaks system paths or OS details
 - **Resource limits** — 10 MB read cap, 1 MB write cap, 50 filenames per request, 5 partial match results
 
-See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 48 tested attack vectors.
+**Git tools** — all git execution is sandboxed to the repo directory:
+
+- **`execFileSync` only** — no shell, no command injection possible
+- **Ref name allowlist** — rejects shell metacharacters, backticks, `$()`, pipes, semicolons
+- **Path validation** — blame file paths go through null byte check, vault containment, and symlink walk
+- **Output sanitization** — repo path stripped from all output, 100KB output cap, 10s timeout
+
+See [SECURITY.md](SECURITY.md) for the full threat model, design rationale, and all 68 tested attack vectors.
 
 ## Development
 
 ```bash
-npm test            # run all 148 tests
+npm test            # run all 193 tests
 npm run test:watch  # watch mode
 npm run lint        # type-check without emitting
 npm run dev         # watch mode compilation
@@ -66,20 +120,27 @@ npm run dev         # watch mode compilation
 
 ```
 src/
-├── index.ts                    Server entrypoint (stdio transport)
+├── index.ts                    Server entrypoint (--vault/--repo flags, stdio transport)
 ├── core/                       Shared security framework
 │   ├── validation.ts           Assertion functions (7)
 │   ├── vault.ts                Immutable vault path management
+│   ├── repo.ts                 Immutable repo path management + git validation
 │   └── errors.ts               Error sanitization
 └── tools/
-    └── obsidian/               Obsidian vault tool module
-        ├── getAllFilenames.ts
-        ├── readMultipleFiles.ts
-        ├── getOpenTodos.ts
-        └── updateFileContent.ts
+    ├── obsidian/               Obsidian vault tool module
+    │   ├── getAllFilenames.ts
+    │   ├── readMultipleFiles.ts
+    │   ├── getOpenTodos.ts
+    │   └── updateFileContent.ts
+    └── git/                    Git tool module
+        ├── exec.ts             Safe git execution helper
+        ├── gitStatus.ts
+        ├── gitLog.ts
+        ├── gitDiff.ts
+        └── gitBlame.ts
 ```
 
-The architecture separates the security core from tool implementations. The core handles validation, sandboxing, and error sanitization. Tool modules plug into the core and inherit all protections. New tool modules can be added under `src/tools/` without modifying the security layer.
+The architecture separates the security core from tool implementations. The core handles validation, sandboxing, and error sanitization. Tool modules plug into the core and inherit all protections. The two modules are independent — you can run either or both.
 
 ## License
 
