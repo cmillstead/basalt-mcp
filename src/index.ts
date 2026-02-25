@@ -59,11 +59,24 @@ function parseArgs(argv: string[]): { vault?: string; repo?: string } {
   return result;
 }
 
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.error("Usage: basalt-mcp --vault <vault-path> --repo <repo-path>");
+  console.error("");
+  console.error("  --vault <path>  Obsidian vault directory (enables vault tools)");
+  console.error("  --repo <path>   Git repository directory (enables git tools)");
+  console.error("  --help, -h      Show this help message");
+  console.error("");
+  console.error("  At least one of --vault or --repo is required.");
+  console.error("  Communicates over stdio using the MCP JSON-RPC protocol.");
+  process.exit(0);
+}
+
 const args = parseArgs(process.argv);
 
 if (!args.vault && !args.repo) {
   console.error("Usage: basalt-mcp --vault <vault-path> --repo <repo-path>");
   console.error("  At least one of --vault or --repo is required.");
+  console.error("  Run with --help for more information.");
   process.exit(1);
 }
 

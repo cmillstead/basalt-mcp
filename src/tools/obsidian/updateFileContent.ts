@@ -30,6 +30,7 @@ import {
   assertNoSymlinkedParents,
   sanitizeError,
 } from "../../core/index.js";
+import { clearCache } from "./getAllFilenames.js";
 
 export const schema = z.object({
   filePath: z.string().describe("Path relative to vault root"),
@@ -86,6 +87,7 @@ export async function handler(input: Input): Promise<string> {
       if (fd !== undefined) fs.closeSync(fd);
     }
 
+    clearCache();
     return `Successfully wrote ${input.filePath}`;
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
