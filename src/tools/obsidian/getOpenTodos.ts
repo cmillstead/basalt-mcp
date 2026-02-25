@@ -1,14 +1,28 @@
 /**
  * Scan markdown files for unchecked todo items (- [ ]).
  *
- * Excludes dotfiles, symlinks, and files over 10MB.
+ * Reuses getAllFilenames for the file list (inherits symlink/dotfile
+ * exclusion), then filters to .md files and scans line by line.
+ * Skips files over 10MB via assertFileSize.
  */
 
+import path from "node:path";
+import fs from "node:fs";
 import { z } from "zod";
+import {
+  getVaultPath,
+  assertInsideVault,
+  assertFileSize,
+  assertNoSymlinkedParents,
+} from "../../core/index.js";
+import { handler as getAllFilenames } from "./getAllFilenames.js";
+
+const TODO_PATTERN = /^(\s*)-\s\[\s\]\s(.+)$/;
 
 export const schema = z.object({});
 
-export const description = "Find all open todo items (- [ ]) across vault markdown files";
+export const description =
+  "Find all open todo items (- [ ]) across vault markdown files";
 
 export interface TodoItem {
   file: string;
@@ -17,6 +31,42 @@ export interface TodoItem {
 }
 
 export async function handler(): Promise<TodoItem[]> {
-  // TODO: implement
-  return [];
+  const vaultPath = getVaultPath();
+  const allFiles = await getAllFilenames();
+  const mdFiles = allFiles.filter((f) => f.endsWith(".md"));
+
+  const todos: TodoItem[] = [];
+
+  for (const relPath of mdFiles) {
+    const absPath = path.resolve(vaultPath, relPath);
+
+    try {
+      assertInsideVault(absPath, vaultPath);
+      assertNoSymlinkedParents(absPath, vaultPath);
+
+      const stat = fs.lstatSync(absPath);
+      if (stat.isSymbolicLink()) continue;
+
+      assertFileSize(absPath);
+
+      const content = fs.readFileSync(absPath, "utf-8");
+      const lines = content.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        const match = TODO_PATTERN.exec(lines[i]);
+        if (match) {
+          todos.push({
+            file: relPath,
+            line: i + 1,
+            text: match[2].trim(),
+          });
+        }
+      }
+    } catch {
+      // Skip files that fail validation or are too large
+      continue;
+    }
+  }
+
+  return todos;
 }
