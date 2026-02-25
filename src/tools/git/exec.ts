@@ -23,10 +23,10 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9_.\\/\-~^@{}:]+$/;
 /**
  * Git -c overrides to neutralize all known config options that
  * execute external commands. Setting to empty string disables them.
- * -c has the highest config precedence — overrides .git/config.
+ * -c has the highest config precedence - overrides .git/config.
  */
 const CONFIG_OVERRIDES = [
-  "-c", "core.fsmonitor=",          // Fires on status/diff — #1 threat
+  "-c", "core.fsmonitor=",          // Fires on status/diff - #1 threat
   "-c", "core.hooksPath=",          // Redirects hooks directory
   "-c", "core.sshCommand=",         // SSH transport command
   "-c", "core.askPass=",            // Password prompt program
@@ -87,7 +87,7 @@ export function gitExec(args: string[]): string {
     // Strip absolute repo path from output to prevent leakage
     return result.replaceAll(repoPath, ".");
   } catch (err) {
-    // execFileSync throws on non-zero exit — git diff returns 1 when there are changes
+    // execFileSync throws on non-zero exit - git diff returns 1 when there are changes
     if (err && typeof err === "object" && "stdout" in err) {
       const output = (err as { stdout: string }).stdout;
       if (typeof output === "string" && output.length > 0) {

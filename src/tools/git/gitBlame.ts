@@ -1,7 +1,7 @@
 /**
  * Git blame for a file.
  *
- * Full path validation before execution — null bytes, vault
+ * Full path validation before execution - null bytes, vault
  * containment, symlinked parents. Uses -- separator to prevent
  * flag injection via filename.
  */
@@ -30,13 +30,13 @@ export const description =
 export type Input = z.infer<typeof schema>;
 
 export async function handler(input: Input): Promise<string> {
-  const vaultPath = getRepoPath();
+  const repoPath = getRepoPath();
 
   assertNoNullBytes(input.filePath);
 
-  const fullPath = path.resolve(vaultPath, input.filePath);
-  assertInsideVault(fullPath, vaultPath);
-  assertNoSymlinkedParents(fullPath, vaultPath);
+  const fullPath = path.resolve(repoPath, input.filePath);
+  assertInsideVault(fullPath, repoPath);
+  assertNoSymlinkedParents(fullPath, repoPath);
 
   // -- separator prevents filePath from being interpreted as a flag
   return wrapUntrustedContent(gitExec(["blame", "--", input.filePath]), generateBoundaryToken());
