@@ -11,13 +11,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { initVault } from "./core/index.js";
 import {
-  getAllFilenamesSchema,
   getAllFilenamesDescription,
   getAllFilenames,
   readMultipleFilesSchema,
   readMultipleFilesDescription,
   readMultipleFiles,
-  getOpenTodosSchema,
   getOpenTodosDescription,
   getOpenTodos,
   updateFileContentSchema,
@@ -45,7 +43,8 @@ const server = new McpServer({
 });
 
 // Register Obsidian vault tools
-server.tool("getAllFilenames", getAllFilenamesDescription, getAllFilenamesSchema.shape, async () => ({
+// Parameterless tools use the (name, description, callback) overload
+server.tool("getAllFilenames", getAllFilenamesDescription, async () => ({
   content: [{ type: "text", text: JSON.stringify(await getAllFilenames(), null, 2) }],
 }));
 
@@ -53,7 +52,7 @@ server.tool("readMultipleFiles", readMultipleFilesDescription, readMultipleFiles
   content: [{ type: "text", text: JSON.stringify(await readMultipleFiles(args), null, 2) }],
 }));
 
-server.tool("getOpenTodos", getOpenTodosDescription, getOpenTodosSchema.shape, async () => ({
+server.tool("getOpenTodos", getOpenTodosDescription, async () => ({
   content: [{ type: "text", text: JSON.stringify(await getOpenTodos(), null, 2) }],
 }));
 
