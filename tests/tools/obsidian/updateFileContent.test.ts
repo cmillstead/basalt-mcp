@@ -137,7 +137,7 @@ describe("updateFileContent", () => {
   });
 
   describe("extension allowlist", () => {
-    it.each([".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".canvas"])(
+    it.each([".md", ".canvas"])(
       "allows %s",
       async (ext) => {
         const result = await handler({
@@ -149,7 +149,7 @@ describe("updateFileContent", () => {
       }
     );
 
-    it.each([".js", ".sh", ".py", ".exe", ".html", ".ts", ".bash"])(
+    it.each([".js", ".sh", ".py", ".exe", ".html", ".ts", ".bash", ".txt", ".csv", ".json", ".yaml", ".yml"])(
       "rejects %s",
       async (ext) => {
         const result = await handler({

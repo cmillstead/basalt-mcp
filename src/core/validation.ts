@@ -10,11 +10,6 @@ import fs from "node:fs";
 
 const ALLOWED_EXTENSIONS = new Set([
   ".md",
-  ".txt",
-  ".csv",
-  ".json",
-  ".yaml",
-  ".yml",
   ".canvas",
 ]);
 

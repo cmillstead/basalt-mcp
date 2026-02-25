@@ -96,7 +96,7 @@ The server treats every tool call as potentially hostile.
 **Vault tools** — all filesystem access is sandboxed to the vault directory through multiple independent layers:
 
 - **9-step write validation chain** — null bytes, dot-paths, extension allowlist, path limits, vault containment, symlinked parent walk, atomic `O_NOFOLLOW` write
-- **Extension allowlist** — only `.md`, `.txt`, `.csv`, `.json`, `.yaml`, `.yml`, `.canvas`
+- **Extension allowlist** — only `.md` and `.canvas` (native Obsidian formats)
 - **3-layer symlink defense** — glob-level exclusion, parent directory walk, kernel-level `O_NOFOLLOW`
 - **Error sanitization** — never leaks system paths or OS details
 - **Resource limits** — 10 MB read cap, 1 MB write cap, 50 filenames per request, 5 partial match results, 20 search match cap

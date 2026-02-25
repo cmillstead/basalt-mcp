@@ -33,14 +33,14 @@ describe("assertNoDotPaths", () => {
 });
 
 describe("assertAllowedExtension", () => {
-  it.each([".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".canvas"])(
+  it.each([".md", ".canvas"])(
     "allows %s",
     (ext) => {
       expect(() => assertAllowedExtension(`file${ext}`)).not.toThrow();
     }
   );
 
-  it.each([".js", ".sh", ".py", ".exe", ".html"])(
+  it.each([".js", ".sh", ".py", ".exe", ".html", ".txt", ".csv", ".json", ".yaml", ".yml"])(
     "rejects %s",
     (ext) => {
       expect(() => assertAllowedExtension(`file${ext}`)).toThrow(ValidationError);

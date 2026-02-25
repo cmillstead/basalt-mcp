@@ -26,7 +26,7 @@ Every write passes a 9-step pipeline before touching the filesystem. If any step
 1. assertNoNullBytes(filePath)        Reject \0 (path truncation attacks)
 2. assertNoDotPaths(filePath)         Reject any segment starting with "."
                                       Blocks .obsidian/, .git/, .hidden.md
-3. assertAllowedExtension(filePath)   Allowlist: .md .txt .csv .json .yaml .yml .canvas
+3. assertAllowedExtension(filePath)   Allowlist: .md .canvas
 4. assertPathLimits(filePath)         Max 512 chars, max 10 directory levels
 5. path.resolve(vault, filePath)      Normalize to absolute path
 6. assertInsideVault(fullPath, vault) Must start with vault + path.sep (strict prefix)
@@ -63,9 +63,9 @@ Steps 1–6 are pure validation on the string. Step 7 is the only mutation befor
 
 We use an allowlist, not a blocklist. Blocklists miss things.
 
-**Allowed:** `.md` `.txt` `.csv` `.json` `.yaml` `.yml` `.canvas`
+**Allowed:** `.md` `.canvas`
 
-Everything else is rejected — including `.js`, `.sh`, `.py`, `.exe`, `.html`, `.ts`, `.bash`, `.so`, `.dylib`, `.dll`, and files with no extension.
+These are the only native Obsidian file types. Everything else is rejected — including `.js`, `.sh`, `.py`, `.exe`, `.html`, `.ts`, `.bash`, `.so`, `.dylib`, `.dll`, `.txt`, `.csv`, `.json`, `.yaml`, `.yml`, and files with no extension.
 
 Double extensions are safe: `path.extname("file.md.js")` returns `.js`, which is not in the allowlist.
 

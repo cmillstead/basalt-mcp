@@ -137,7 +137,7 @@ describe("appendToFile", () => {
   });
 
   describe("extension allowlist", () => {
-    it.each([".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".canvas"])(
+    it.each([".md", ".canvas"])(
       "allows %s",
       async (ext) => {
         touch(`file${ext}`, "existing content");
@@ -149,7 +149,7 @@ describe("appendToFile", () => {
       }
     );
 
-    it.each([".js", ".sh", ".py", ".exe", ".html"])(
+    it.each([".js", ".sh", ".py", ".exe", ".html", ".txt", ".csv", ".json", ".yaml", ".yml"])(
       "rejects %s",
       async (ext) => {
         const result = await handler({

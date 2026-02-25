@@ -48,7 +48,7 @@ Run a specific test file: `npx vitest run tests/security/adversarial-git.test.ts
 These are non-negotiable. Do not weaken or bypass them:
 
 - **Every write goes through the 9-step validation chain** in `updateFileContent.ts`. Do not skip steps or reorder them.
-- **Extension allowlist, not blocklist.** Only add new extensions after explicit approval. The list: `.md .txt .csv .json .yaml .yml .canvas`
+- **Extension allowlist, not blocklist.** Only add new extensions after explicit approval. The list: `.md .canvas`
 - **Dot-path rejection is per-segment.** Never change to a simple `startsWith(".")` check.
 - **Error messages never leak system details.** All errors go through `sanitizeError()`. Never return raw `error.message` to the AI.
 - **Symlink defense has 3 layers** (glob, parent walk, O_NOFOLLOW). All three are needed. Do not remove any.
