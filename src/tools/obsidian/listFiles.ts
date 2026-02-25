@@ -41,7 +41,7 @@ export async function handler(input: Input): Promise<string[]> {
   let allFiles = await getAllFilenames();
 
   // Validate and filter by folder
-  if (input.folder !== undefined) {
+  if (input.folder !== undefined && input.folder !== "." && input.folder !== "") {
     assertNoNullBytes(input.folder);
     assertNoDotPaths(input.folder);
     assertPathLimits(input.folder);

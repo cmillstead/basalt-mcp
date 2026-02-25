@@ -75,7 +75,7 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
 
   // 3. Validate folder if provided
   let folderPrefix: string | undefined;
-  if (input.folder !== undefined) {
+  if (input.folder !== undefined && input.folder !== "." && input.folder !== "") {
     assertNoNullBytes(input.folder);
     assertNoDotPaths(input.folder);
     assertPathLimits(input.folder);

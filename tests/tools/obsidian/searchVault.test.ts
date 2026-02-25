@@ -155,6 +155,15 @@ describe("searchVault", () => {
       expect(result[0].file).toBe("notes/a.md");
     });
 
+    it("treats folder '.' as vault root (searches all files)", async () => {
+      touch("notes/a.md", "findme in notes\n");
+      touch("journal/b.md", "findme in journal\n");
+
+      const result = await handler({ query: "findme", folder: "." });
+
+      expect(result).toHaveLength(2);
+    });
+
     it("does not match files outside the folder", async () => {
       touch("notes/inside.md", "findme\n");
       touch("outside.md", "findme\n");

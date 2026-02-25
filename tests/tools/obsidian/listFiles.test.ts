@@ -78,6 +78,19 @@ describe("listFiles", () => {
       expect(result).toHaveLength(3);
     });
 
+    it("treats folder '.' as vault root (returns all files)", async () => {
+      touch("notes/hello.md", "hello");
+      touch("journal/entry.md", "entry");
+      touch("top.md", "top");
+
+      const result = await handler({ folder: "." });
+
+      expect(result).toContain("notes/hello.md");
+      expect(result).toContain("journal/entry.md");
+      expect(result).toContain("top.md");
+      expect(result).toHaveLength(3);
+    });
+
     it("returns empty array when folder has no files", async () => {
       touch("notes/idea.md", "an idea");
       fs.mkdirSync(path.join(tmpDir, "empty-folder"), { recursive: true });

@@ -203,3 +203,13 @@ if (hasRepo) {
 // Connect via stdio — all logging must use stderr from this point
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  console.error("[basalt-mcp] Interrupted");
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  console.error("[basalt-mcp] Shutting down");
+  process.exit(0);
+});

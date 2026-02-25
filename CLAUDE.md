@@ -31,7 +31,7 @@ At least one of `--vault` or `--repo` is required.
 
 ## Testing
 
-339 tests across 17 files. All tests use real temp directories and real symlinks — no fs mocking.
+341 tests across 17 files. All tests use real temp directories and real symlinks — no fs mocking.
 
 - `tests/core/` — Core validation assertions + content boundary tests
 - `tests/tools/obsidian/` — Per-tool unit tests (7 files)
