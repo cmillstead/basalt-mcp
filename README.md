@@ -1,6 +1,6 @@
 # Basalt MCP
 
-A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) server with two independent tool modules: **Obsidian vault tools** for managing a knowledge base, and **git tools** for LLM-assisted code review. Built on the assumption that the connected AI is the attacker.
+A security-hardened [Model Context Protocol](https://modelcontextprotocol.io/) server with two independent tool modules: **Obsidian vault tools** for managing a knowledge base, and **git tools** for LLM-assisted code review. Built for adversarial environments where the connected AI cannot be trusted.
 
 ## Tools
 
