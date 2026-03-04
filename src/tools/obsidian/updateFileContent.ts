@@ -70,8 +70,10 @@ export async function handler(input: Input): Promise<string> {
     // 6. Vault containment check
     assertInsideVault(fullPath, vaultPath);
 
-    // 7. Create parent directories
-    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    // 7. Create parent directories — track whether they pre-existed for cleanup on failure
+    const parentDir = path.dirname(fullPath);
+    const parentExisted = fs.existsSync(parentDir);
+    fs.mkdirSync(parentDir, { recursive: true });
 
     // 8. Symlinked parent directory check
     assertNoSymlinkedParents(fullPath, vaultPath);
@@ -83,6 +85,12 @@ export async function handler(input: Input): Promise<string> {
     try {
       fd = fs.openSync(fullPath, flags, 0o644);
       fs.writeSync(fd, input.content);
+    } catch (writeErr) {
+      // Clean up newly created parent directory to avoid orphaned dirs
+      if (!parentExisted) {
+        try { fs.rmSync(parentDir, { recursive: true, force: true }); } catch { /* best effort */ }
+      }
+      throw writeErr;
     } finally {
       if (fd !== undefined) fs.closeSync(fd);
     }

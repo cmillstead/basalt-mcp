@@ -88,8 +88,18 @@ export async function handler(input: Input): Promise<string> {
       );
     }
 
-    // 10. Determine newline separator
-    const currentContent = fs.readFileSync(fullPath, "utf-8");
+    // 10. Determine newline separator — read via O_NOFOLLOW to prevent TOCTOU symlink attack
+    const rdFlags = constants.O_RDONLY | constants.O_NOFOLLOW;
+    let rdFd: number | undefined;
+    let currentContent: string;
+    try {
+      rdFd = fs.openSync(fullPath, rdFlags);
+      const buf = Buffer.alloc(stat.size > 0 ? stat.size : 0);
+      if (stat.size > 0) fs.readSync(rdFd, buf, 0, stat.size, 0);
+      currentContent = buf.toString("utf-8");
+    } finally {
+      if (rdFd !== undefined) fs.closeSync(rdFd);
+    }
     const separator =
       currentContent.length > 0 && !currentContent.endsWith("\n") ? "\n" : "";
     const toAppend = separator + input.content;

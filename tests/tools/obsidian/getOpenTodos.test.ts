@@ -33,11 +33,12 @@ describe("getOpenTodos", () => {
       const result = await handler();
 
       expect(result).toHaveLength(2);
-      expect(result[0].file).toBe("tasks.md");
+      expect(result[0].file).toContain("tasks.md");
+      expect(result[0].file).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
       expect(result[0].line).toBe(2);
       expect(result[0].text).toContain("Buy milk");
       expect(result[0].text).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
-      expect(result[1].file).toBe("tasks.md");
+      expect(result[1].file).toContain("tasks.md");
       expect(result[1].line).toBe(3);
       expect(result[1].text).toContain("Write tests");
     });

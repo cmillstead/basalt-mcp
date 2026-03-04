@@ -29,7 +29,7 @@ export async function handler(input: Input): Promise<string> {
   const output = gitExec([
     "log",
     `--max-count=${input.maxCount}`,
-    "--format=%H %ae %aI%n%s%n",
+    "--format=%H %an %aI%n%s%n",
   ]);
   return wrapUntrustedContent(output, generateBoundaryToken());
 }

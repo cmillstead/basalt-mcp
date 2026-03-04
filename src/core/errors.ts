@@ -33,7 +33,7 @@ function logError(msg: string, detail?: string, code?: string): void {
     ts: new Date().toISOString(),
   };
   if (code) entry.code = code;
-  if (detail) entry.detail = detail;
+  if (detail) entry.detail = detail.replace(/\/[^\s:,]+/g, "<path>");
   console.error(JSON.stringify(entry));
 }
 

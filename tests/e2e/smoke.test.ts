@@ -112,9 +112,9 @@ describe("e2e smoke test", () => {
     expect(envelope._meta.source).toBe("vault");
     expect(envelope._meta.warning).toContain("untrusted");
 
-    const results = envelope.results as Record<string, string>;
-    expect(results["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
-    expect(results["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+    const found = envelope.found as Record<string, string>;
+    expect(found["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
+    expect(found["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
   });
 
   it("readMultipleFiles partial match works", async () => {
@@ -123,9 +123,9 @@ describe("e2e smoke test", () => {
       arguments: { filenames: ["hello"] },
     });
     const envelope = parseEnvelope(result);
-    const results = envelope.results as Record<string, string>;
+    const found = envelope.found as Record<string, string>;
 
-    expect(results["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
+    expect(found["notes/hello.md"]).toContain("# Hello\n\nWorld\n");
   });
 
   it("readMultipleFiles returns not found for missing files", async () => {
@@ -134,9 +134,9 @@ describe("e2e smoke test", () => {
       arguments: { filenames: ["nonexistent.md"] },
     });
     const envelope = parseEnvelope(result);
-    const results = envelope.results as Record<string, string>;
+    const notFound = envelope.notFound as string[];
 
-    expect(results["nonexistent.md"]).toBe("[not found]");
+    expect(notFound).toContain("nonexistent.md");
   });
 
   it("getOpenTodos returns envelope with boundary-wrapped text", async () => {
@@ -217,8 +217,8 @@ describe("e2e smoke test", () => {
       arguments: { filenames: ["roundtrip.md"] },
     });
     const readEnvelope = parseEnvelope(readResult);
-    const readData = readEnvelope.results as Record<string, string>;
-    expect(readData["roundtrip.md"]).toContain(
+    const readFound = readEnvelope.found as Record<string, string>;
+    expect(readFound["roundtrip.md"]).toContain(
       "# Round Trip\n\n- [ ] Verify this works\n"
     );
 
@@ -345,12 +345,13 @@ describe("e2e smoke test", () => {
   it("listFiles filters by extension", async () => {
     const result = await client.callTool({
       name: "listFiles",
-      arguments: { extension: ".json" },
+      arguments: { extension: ".md" },
     });
     const envelope = parseEnvelope(result);
     const files = envelope.results as string[];
 
-    expect(files.every((f) => f.endsWith(".json"))).toBe(true);
-    expect(files).toContain("data.json");
+    expect(files.every((f) => f.endsWith(".md"))).toBe(true);
+    expect(files).toContain("notes/hello.md");
+    expect(files).not.toContain("data.json");
   });
 });

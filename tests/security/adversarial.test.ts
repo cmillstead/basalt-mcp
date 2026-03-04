@@ -204,8 +204,8 @@ describe("symlink attacks", () => {
     const result = await readFiles({ filenames: ["passwords.md"] });
 
     // Should NOT return /etc/passwd contents — symlink excluded by getAllFilenames
-    // so partial match on "passwords" returns [not found]
-    expect(result["passwords.md"]).toBe("[not found]");
+    // so partial match on "passwords" returns not found
+    expect(result.notFound).toContain("passwords.md");
   });
 
   it("deeply nested symlink escape", async () => {
@@ -220,7 +220,7 @@ describe("symlink attacks", () => {
     expect(files.some((f) => f.includes("secret"))).toBe(false);
 
     const result = await readFiles({ filenames: ["secret.md"] });
-    expect(result["secret.md"]).toBe("[not found]");
+    expect(result.notFound).toContain("secret.md");
 
     fs.rmSync(outsideDir, { recursive: true, force: true });
   });
@@ -281,9 +281,7 @@ describe("resource exhaustion", () => {
 
     // Single-char query matches everything — capped at 5
     const result = await readFiles({ filenames: ["n"] });
-    const readCount = Object.keys(result).filter(
-      (k) => k !== "n" && result[k] !== "[not found]"
-    ).length;
+    const readCount = Object.keys(result.found).length;
     expect(readCount).toBeLessThanOrEqual(5);
   });
 
@@ -299,7 +297,7 @@ describe("resource exhaustion", () => {
     // Should complete without hanging. Max reads = 50 * 5 = 250
     // But since they're all the same query hitting the same 5 files,
     // the result keys will be deduplicated
-    expect(Object.keys(result).length).toBeLessThanOrEqual(50 * 5);
+    expect(Object.keys(result.found).length).toBeLessThanOrEqual(50 * 5);
   });
 });
 
@@ -337,7 +335,7 @@ describe("information leakage", () => {
 
     const result = await readFiles({ filenames: [".env"] });
     // .env won't be in allFiles, so partial match on ".env" won't find it
-    expect(result[".env"]).toBe("[not found]");
+    expect(result.notFound).toContain(".env");
   });
 
   it("vault path not leaked through getAllFilenames", async () => {
@@ -554,19 +552,19 @@ describe("creative attacks", () => {
     // Should not pollute Object prototype
     expect(({} as Record<string, unknown>).__proto__).toBeDefined(); // normal prototype
     // The file should be readable as a normal file
-    expect(typeof result["__proto__.md"]).toBe("string");
+    expect(typeof result.found["__proto__.md"]).toBe("string");
   });
 
   it("file named constructor.md", async () => {
     touch("constructor.md", "constructor payload");
     const result = await readFiles({ filenames: ["constructor.md"] });
-    expect(typeof result["constructor.md"]).toBe("string");
+    expect(typeof result.found["constructor.md"]).toBe("string");
   });
 
   it("file named toString.md", async () => {
     touch("toString.md", "toString payload");
     const result = await readFiles({ filenames: ["toString.md"] });
-    expect(typeof result["toString.md"]).toBe("string");
+    expect(typeof result.found["toString.md"]).toBe("string");
   });
 
   it("extremely long filename within limits", async () => {
@@ -598,7 +596,7 @@ describe("creative attacks", () => {
     const result = await readFiles({
       filenames: ['normal.md", "injected": "true'],
     });
-    // The query is used as a key — verify it doesn't break JSON structure
+    // The query ends up in notFound — not as a JSON key in found
     const serialized = JSON.stringify(result);
     const parsed = JSON.parse(serialized);
     expect(typeof parsed).toBe("object");

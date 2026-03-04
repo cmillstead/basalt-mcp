@@ -7,14 +7,14 @@
  *
  * Defends against malicious .git/config by overriding all config
  * options that execute external commands (-c flags have highest
- * precedence) and by sanitizing the environment to prevent
- * system/global config and env-based config injection.
+ * precedence) and by using a minimal allowlist environment to prevent
+ * secret leakage and env-based config injection.
  *
  * See: CVE-2022-24765, CVE-2024-32002, CVE-2025-48384
  */
 
 import { execFileSync } from "node:child_process";
-import { getRepoPath } from "../../core/index.js";
+import { getRepoPath, ValidationError } from "../../core/index.js";
 
 const MAX_OUTPUT_BYTES = 100 * 1024; // 100KB
 
@@ -42,28 +42,52 @@ const CONFIG_OVERRIDES = [
   "-c", "sendemail.sendmailCmd=",   // Email sending command
   "-c", "sendemail.toCmd=",         // Email recipient generation
   "-c", "sendemail.ccCmd=",         // Email CC generation
+  "-c", "log.showSignature=false",  // Prevent gpg.program invocation on git log
+  "-c", "gpg.program=",             // Neutralize custom gpg binary
+  "-c", "gpg.ssh.defaultKeyCommand=", // SSH signing variant
+  "-c", "gpg.ssh.allowedSignersFile=", // SSH signing file reference
+  "-c", "tag.gpgSign=false",        // Prevent signature verification on tags
 ];
 
 /**
- * Environment variables that prevent system/global config loading
- * and neutralize env-based overrides for command-executing options.
+ * Minimal environment for git subprocess — only what git needs to run.
+ * Does NOT spread process.env, so unlisted vars (API keys, tokens, secrets,
+ * GIT_EXEC_PATH, GIT_DIR, GIT_OBJECT_DIRECTORY, etc.) are automatically
+ * excluded from the subprocess environment without needing explicit clearing.
+ * Setting GIT_DIR="" would break git; omitting it is the correct approach.
  */
 const SAFE_ENV: Record<string, string> = {
-  ...process.env,
-  GIT_CONFIG_NOSYSTEM: "1",         // Skip /etc/gitconfig
-  GIT_CONFIG_GLOBAL: "/dev/null",   // Skip ~/.gitconfig
-  GIT_TERMINAL_PROMPT: "0",         // Prevent interactive prompts
-  GIT_CONFIG_COUNT: "0",            // Prevent env-based config injection
-  GIT_ASKPASS: "",                   // Neutralize env askpass override
-  GIT_SSH_COMMAND: "",               // Neutralize env SSH override
-  GIT_EDITOR: "",                    // Neutralize env editor override
-  GIT_PAGER: "",                     // Neutralize env pager override
-  GIT_EXTERNAL_DIFF: "",             // Neutralize env diff override
+  // Passthrough only the vars git actually needs to locate executables and temp space
+  PATH: process.env.PATH ?? "/usr/bin:/bin",
+  HOME: process.env.HOME ?? "/tmp",
+  TMPDIR: process.env.TMPDIR ?? "/tmp",
+  TMP: process.env.TMP ?? "/tmp",
+  TEMP: process.env.TEMP ?? "/tmp",
+  LANG: process.env.LANG ?? "en_US.UTF-8",
+  LC_ALL: process.env.LC_ALL ?? "",
+  // Skip system and user git config — always server-controlled
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  // Block env-based config injection via GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_*
+  GIT_CONFIG_COUNT: "0",
+  // Prevent interactive prompts
+  GIT_TERMINAL_PROMPT: "0",
+  // Neutralize env-based command overrides (empty string disables, unlike unset)
+  GIT_ASKPASS: "",
+  GIT_SSH_COMMAND: "",
+  GIT_EDITOR: "",
+  GIT_PAGER: "",
+  GIT_EXTERNAL_DIFF: "",
 };
 
 export function assertSafeRef(ref: string): void {
+  // Block path traversal sequences — git rejects them, but we reject
+  // them earlier so the error type is ValidationError (safe for AI).
+  if (ref.includes("../")) {
+    throw new ValidationError("Invalid git ref: contains disallowed characters");
+  }
   if (!SAFE_REF_PATTERN.test(ref)) {
-    throw new Error("Invalid git ref: contains disallowed characters");
+    throw new ValidationError("Invalid git ref: contains disallowed characters");
   }
 }
 

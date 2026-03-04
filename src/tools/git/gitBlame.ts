@@ -11,6 +11,7 @@ import { z } from "zod";
 import {
   getRepoPath,
   assertNoNullBytes,
+  assertNoDotPaths,
   assertInsideVault,
   assertNoSymlinkedParents,
   generateBoundaryToken,
@@ -33,11 +34,12 @@ export async function handler(input: Input): Promise<string> {
   const repoPath = getRepoPath();
 
   assertNoNullBytes(input.filePath);
+  assertNoDotPaths(input.filePath);
 
   const fullPath = path.resolve(repoPath, input.filePath);
   assertInsideVault(fullPath, repoPath);
   assertNoSymlinkedParents(fullPath, repoPath);
 
   // -- separator prevents filePath from being interpreted as a flag
-  return wrapUntrustedContent(gitExec(["blame", "--", input.filePath]), generateBoundaryToken());
+  return wrapUntrustedContent(gitExec(["blame", "--no-show-email", "--", input.filePath]), generateBoundaryToken());
 }
