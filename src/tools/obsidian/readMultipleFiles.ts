@@ -40,10 +40,16 @@ export const description =
 
 export type Input = z.infer<typeof schema>;
 
-export async function handler(input: Input): Promise<Record<string, string>> {
+export interface ReadMultipleFilesResult {
+  found: Record<string, string>;
+  notFound: string[];
+}
+
+export async function handler(input: Input): Promise<ReadMultipleFilesResult> {
   const vaultPath = getVaultPath();
   const allFiles = await getAllFilenames();
-  const results: Record<string, string> = {};
+  const found: Record<string, string> = {};
+  const notFound: string[] = [];
 
   for (const query of input.filenames) {
     try {
@@ -53,7 +59,7 @@ export async function handler(input: Input): Promise<Record<string, string>> {
       const exactMatch = allFiles.find((f) => f === query);
       if (exactMatch) {
         const absPath = path.resolve(vaultPath, exactMatch);
-        results[exactMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
+        found[exactMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         continue;
       }
 
@@ -62,7 +68,7 @@ export async function handler(input: Input): Promise<Record<string, string>> {
       const caseMatch = allFiles.find((f) => f.toLowerCase() === queryLower);
       if (caseMatch) {
         const absPath = path.resolve(vaultPath, caseMatch);
-        results[caseMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
+        found[caseMatch] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         continue;
       }
 
@@ -75,22 +81,22 @@ export async function handler(input: Input): Promise<Record<string, string>> {
         .slice(0, MAX_PARTIAL_MATCHES);
 
       if (partialMatches.length === 0) {
-        results[query] = "[not found]";
+        notFound.push(query);
         continue;
       }
 
       for (const match of partialMatches) {
         const absPath = path.resolve(vaultPath, match);
         try {
-          results[match] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
+          found[match] = wrapUntrustedContent(readSafeFile(absPath, vaultPath), generateBoundaryToken());
         } catch (err) {
-          results[match] = sanitizeError(err, "Failed to read file");
+          found[match] = sanitizeError(err, "Failed to read file");
         }
       }
     } catch (err) {
-      results[query] = sanitizeError(err, "Failed to read file");
+      notFound.push(query);
     }
   }
 
-  return results;
+  return { found, notFound };
 }

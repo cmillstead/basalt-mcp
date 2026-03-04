@@ -43,9 +43,10 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "glob": "^13.0.6",
-    "zod": "^4.3.6"
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "glob": "13.0.6",
+    "re2": "1.23.3",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.3.0",

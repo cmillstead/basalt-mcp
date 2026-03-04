@@ -7,6 +7,7 @@
  */
 
 import path from "node:path";
+import RE2 from "re2";
 import { z } from "zod";
 import {
   getVaultPath,
@@ -60,17 +61,19 @@ export async function handler(input: Input): Promise<SearchMatch[]> {
   // 1. Validate query
   assertNoNullBytes(input.query);
 
-  // 2. Compile regex
-  let pattern: RegExp;
+  // 2. Compile regex — use RE2 (linear-time engine) for user-supplied patterns
+  //    to prevent catastrophic backtracking (ReDoS). RE2 does not support
+  //    lookaheads/lookbehinds/backreferences — all of which can cause ReDoS.
+  let pattern: { test(s: string): boolean };
   if (input.useRegex) {
     try {
-      pattern = new RegExp(input.query, "i");
+      pattern = new RE2(input.query, "i");
     } catch {
       throw new ValidationError("Invalid regular expression");
     }
   } else {
     const escaped = input.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern = new RegExp(escaped, "i");
+    pattern = new RE2(escaped, "i");
   }
 
   // 3. Validate folder if provided

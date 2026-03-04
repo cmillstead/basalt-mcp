@@ -25,9 +25,10 @@ describe("gitLog", () => {
     expect(result).toMatch(/[0-9a-f]{40}/);
   });
 
-  it("includes author email", async () => {
+  it("includes author name but not author email (PII)", async () => {
     const result = await handler({ maxCount: 20 });
-    expect(result).toContain("test@test.com");
+    expect(result).toContain("Test User");
+    expect(result).not.toContain("test@test.com");
   });
 
   it("does not leak repo path", async () => {

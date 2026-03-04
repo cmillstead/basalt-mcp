@@ -20,7 +20,7 @@ export function validateRepoPath(inputPath: string): string {
   const absolute = path.resolve(inputPath);
 
   if (!fs.existsSync(absolute)) {
-    throw new Error(`Repo path does not exist: ${absolute}`);
+    throw new Error("Repo path does not exist");
   }
 
   const stat = fs.statSync(absolute);

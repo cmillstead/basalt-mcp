@@ -130,17 +130,11 @@ describe("listFiles", () => {
       expect(result).toHaveLength(1);
     });
 
-    it("filters by .json extension", async () => {
+    it("rejects disallowed extension (.json)", async () => {
       touch("notes/hello.md", "hello");
       touch("config.json", "{}");
-      touch("data.json", "[]");
 
-      const result = await handler({ extension: ".json" });
-
-      expect(result).toContain("config.json");
-      expect(result).toContain("data.json");
-      expect(result).not.toContain("notes/hello.md");
-      expect(result).toHaveLength(2);
+      await expect(handler({ extension: ".json" })).rejects.toThrow("Extension not allowed");
     });
 
     it("is case-insensitive on extension", async () => {
@@ -156,13 +150,16 @@ describe("listFiles", () => {
       expect(result).toHaveLength(3);
     });
 
-    it("returns empty array when no files match extension", async () => {
+    it("returns empty array when no files match allowed extension", async () => {
       touch("notes/hello.md", "hello");
-      touch("readme.txt", "read me");
 
-      const result = await handler({ extension: ".csv" });
+      const result = await handler({ extension: ".canvas" });
 
       expect(result).toEqual([]);
+    });
+
+    it("rejects disallowed extension (.csv)", async () => {
+      await expect(handler({ extension: ".csv" })).rejects.toThrow("Extension not allowed");
     });
   });
 

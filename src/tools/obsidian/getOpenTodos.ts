@@ -49,7 +49,7 @@ export async function handler(): Promise<TodoItem[]> {
         const match = TODO_PATTERN.exec(lines[i]);
         if (match) {
           todos.push({
-            file: relPath,
+            file: wrapUntrustedContent(relPath, generateBoundaryToken()),
             line: i + 1,
             text: wrapUntrustedContent(match[2].trim(), generateBoundaryToken()),
           });

@@ -29,9 +29,9 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["notes/hello.md"] });
 
-      expect(result["notes/hello.md"]).toContain("# Hello World");
-      expect(result["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
-      expect(result["notes/hello.md"]).toMatch(/<<<END_UNTRUSTED_CONTENT_[0-9a-f]{32}>>>$/);
+      expect(result.found["notes/hello.md"]).toContain("# Hello World");
+      expect(result.found["notes/hello.md"]).toMatch(/<<<UNTRUSTED_CONTENT_[0-9a-f]{32}>>>/);
+      expect(result.found["notes/hello.md"]).toMatch(/<<<END_UNTRUSTED_CONTENT_[0-9a-f]{32}>>>$/);
     });
 
     it("reads multiple files", async () => {
@@ -40,8 +40,8 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["a.md", "b.md"] });
 
-      expect(result["a.md"]).toContain("content a");
-      expect(result["b.md"]).toContain("content b");
+      expect(result.found["a.md"]).toContain("content a");
+      expect(result.found["b.md"]).toContain("content b");
     });
   });
 
@@ -51,7 +51,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["notes/readme.md"] });
 
-      expect(result["Notes/README.md"]).toContain("readme content");
+      expect(result.found["Notes/README.md"]).toContain("readme content");
     });
   });
 
@@ -62,7 +62,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["2024-01"] });
 
-      expect(result["journal/2024-01-01.md"]).toContain("january");
+      expect(result.found["journal/2024-01-01.md"]).toContain("january");
     });
 
     it("caps partial matches at 5 results", async () => {
@@ -72,9 +72,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["note-"] });
 
-      const matchedKeys = Object.keys(result).filter(
-        (k) => k !== "note-" && result[k] !== "[not found]"
-      );
+      const matchedKeys = Object.keys(result.found);
       expect(matchedKeys.length).toBeLessThanOrEqual(5);
     });
 
@@ -84,16 +82,17 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["target"] });
 
-      expect(result["deep/nested/target.md"]).toContain("found it");
-      expect(result).not.toHaveProperty("other/path/stuff.md");
+      expect(result.found["deep/nested/target.md"]).toContain("found it");
+      expect(result.found).not.toHaveProperty("other/path/stuff.md");
     });
   });
 
   describe("not found", () => {
-    it("returns [not found] for missing files", async () => {
+    it("reports missing files in notFound array without reflecting query as JSON key", async () => {
       const result = await handler({ filenames: ["nonexistent.md"] });
 
-      expect(result["nonexistent.md"]).toBe("[not found]");
+      expect(result.notFound).toContain("nonexistent.md");
+      expect(result.found).not.toHaveProperty("nonexistent.md");
     });
   });
 
@@ -105,8 +104,8 @@ describe("readMultipleFiles", () => {
       const result = await handler({ filenames: ["notes/readme.md"] });
 
       // Exact match should win — not partial match on "readme"
-      expect(result["notes/readme.md"]).toContain("exact");
-      expect(result).not.toHaveProperty("notes/READMORE.md");
+      expect(result.found["notes/readme.md"]).toContain("exact");
+      expect(result.found).not.toHaveProperty("notes/READMORE.md");
     });
 
     it("prefers case-insensitive match over partial", async () => {
@@ -116,8 +115,8 @@ describe("readMultipleFiles", () => {
       const result = await handler({ filenames: ["notes/meeting.md"] });
 
       // Should get exact/case match, not partial
-      expect(result["notes/meeting.md"]).toContain("exact case match");
-      expect(result).not.toHaveProperty("notes/meeting-notes.md");
+      expect(result.found["notes/meeting.md"]).toContain("exact case match");
+      expect(result.found).not.toHaveProperty("notes/meeting-notes.md");
     });
   });
 
@@ -128,32 +127,33 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["a.md", "b.md"] });
 
-      const tokenA = result["a.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
-      const tokenB = result["b.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
+      const tokenA = result.found["a.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
+      const tokenB = result.found["b.md"].match(/UNTRUSTED_CONTENT_([0-9a-f]{32})/)?.[1];
       expect(tokenA).toBeDefined();
       expect(tokenB).toBeDefined();
       expect(tokenA).not.toBe(tokenB);
     });
 
-    it("does not wrap [not found] results", async () => {
+    it("does not wrap not-found results", async () => {
       const result = await handler({ filenames: ["nonexistent.md"] });
-      expect(result["nonexistent.md"]).toBe("[not found]");
-      expect(result["nonexistent.md"]).not.toContain("UNTRUSTED_CONTENT");
+      expect(result.notFound).toContain("nonexistent.md");
+      expect(result.found).not.toHaveProperty("nonexistent.md");
     });
 
     it("does not wrap error results", async () => {
       const result = await handler({ filenames: ["hello\0.md"] });
-      expect(result["hello\0.md"]).not.toContain("UNTRUSTED_CONTENT");
+      expect(result.notFound).toContain("hello\0.md");
+      expect(result.found).not.toHaveProperty("hello\0.md");
     });
   });
 
   describe("security", () => {
-    it("rejects null bytes in query", async () => {
+    it("rejects null bytes in query — puts in notFound", async () => {
       touch("notes/hello.md", "content");
 
       const result = await handler({ filenames: ["hello\0.md"] });
 
-      expect(result["hello\0.md"]).toMatch(/null bytes/);
+      expect(result.notFound).toContain("hello\0.md");
     });
 
     it("excludes symlinked files", async () => {
@@ -165,7 +165,7 @@ describe("readMultipleFiles", () => {
 
       const result = await handler({ filenames: ["link.md"] });
 
-      expect(result["link.md"]).toBe("[not found]");
+      expect(result.notFound).toContain("link.md");
     });
 
     it("excludes files through symlinked parent directories", async () => {
@@ -178,7 +178,7 @@ describe("readMultipleFiles", () => {
       const result = await handler({ filenames: ["secret.md"] });
 
       // Should not find it — symlinked dir is excluded by getAllFilenames
-      expect(result["secret.md"]).toBe("[not found]");
+      expect(result.notFound).toContain("secret.md");
 
       fs.rmSync(outsideDir, { recursive: true, force: true });
     });
@@ -186,9 +186,11 @@ describe("readMultipleFiles", () => {
     it("does not leak system paths in errors", async () => {
       const result = await handler({ filenames: ["../../../etc/passwd"] });
 
-      const value = Object.values(result)[0];
-      expect(value).not.toMatch(/\/etc\/passwd/);
-      expect(value).not.toMatch(/Users/);
+      // Path traversal attempt ends up in notFound — no path leak in found values
+      expect(result.notFound).toContain("../../../etc/passwd");
+      const foundValues = Object.values(result.found).join("");
+      expect(foundValues).not.toMatch(/\/etc\/passwd/);
+      expect(foundValues).not.toMatch(/\/Users\//);
     });
   });
 });
