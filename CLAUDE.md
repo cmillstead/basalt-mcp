@@ -62,6 +62,18 @@ These are non-negotiable. Do not weaken or bypass them:
 - **Tool descriptions must warn about untrusted content.** Any tool returning user-derived content must include injection warnings in its description string.
 - **JSON envelopes include `_meta.contentTrust`.** JSON-returning tools must include metadata distinguishing trusted from untrusted content.
 
+## Code Navigation
+
+This repo is indexed in ironmunch. Use ironmunch MCP tools for code exploration instead of reading full files:
+
+- `search_symbols` — find functions, types, interfaces by name or description
+- `get_file_outline` — all symbols in a file with signatures
+- `get_symbol` — full source of a specific symbol
+- `get_repo_outline` — directory structure and language breakdown
+- `search_text` — full-text search across all files
+
+Use `Read` only when you need content that isn't a named symbol (e.g. config files, package.json).
+
 ## Conventions
 
 - TypeScript strict mode
