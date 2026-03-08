@@ -99,6 +99,7 @@ The server treats every tool call as potentially hostile.
 - **Extension allowlist** — only `.md` and `.canvas` (native Obsidian formats)
 - **3-layer symlink defense** — glob-level exclusion, parent directory walk, kernel-level `O_NOFOLLOW`
 - **Error sanitization** — never leaks system paths or OS details
+- **Untrusted-content metadata** — filenames, file content, todos, search results, and git output are marked untrusted for MCP clients
 - **Resource limits** — 10 MB read cap, 1 MB write cap, 50 filenames per request, 5 partial match results, 20 search match cap
 
 **Git tools** — all git execution is sandboxed to the repo directory:

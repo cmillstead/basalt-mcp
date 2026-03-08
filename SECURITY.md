@@ -312,7 +312,7 @@ JSON-returning tools include a `_meta` field:
 }
 ```
 
-`getAllFilenames` and `listFiles` are marked `contentTrust: "trusted"` (server-generated filenames only). `readMultipleFiles`, `getOpenTodos`, and `searchVault` are marked `contentTrust: "untrusted"`.
+`getAllFilenames` and `listFiles` are marked `contentTrust: "untrusted"` because filenames are user-controlled strings. `readMultipleFiles`, `getOpenTodos`, and `searchVault` are also marked `contentTrust: "untrusted"`.
 
 ### Defense layer 4: MCP ToolAnnotations
 

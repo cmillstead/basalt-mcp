@@ -29,6 +29,15 @@ At least one of `--vault` or `--repo` is required.
 - `npm run lint` — Type-check without emitting
 - `npm run dev` — Watch mode compilation
 
+## Recent Security Notes
+
+- `dist/` was rebuilt to match the hardened `src/` tree. If you change security-sensitive code, run `npm run build` before relying on e2e results or publishing.
+- `getAllFilenames` and `listFiles` now emit `_meta.contentTrust: "untrusted"` with filename-specific warnings. Filenames are attacker-controlled strings and must not be treated as trusted UI content.
+- `readMultipleFiles` returns `{ found, notFound }` in its envelope contract. Keep e2e expectations aligned with that shape.
+- `re2` is an active production dependency for `searchVault` ReDoS protection. If install/build issues recur, verify `node_modules/re2` is present before debugging TypeScript.
+- `package.json` uses `overrides` to pin patched transitive versions for `@hono/node-server`, `express-rate-limit`, `hono`, and `tar`. Do not remove these without re-running `npm audit`.
+- Current verification baseline: `npm run lint`, `npm run build`, `npm test`, and `npm audit --omit=dev`.
+
 ## Testing
 
 341 tests across 17 files. All tests use real temp directories and real symlinks — no fs mocking.
