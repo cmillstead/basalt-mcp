@@ -27,7 +27,7 @@ function parseText(result: unknown): string {
   return (result as { content: Array<{ type: string; text: string }> }).content[0].text;
 }
 
-function parseEnvelope(result: unknown): { _meta: Record<string, unknown>; results: unknown } {
+function parseEnvelope(result: unknown): Record<string, unknown> & { _meta: Record<string, unknown> } {
   return JSON.parse(parseText(result));
 }
 
@@ -81,13 +81,14 @@ describe("e2e smoke test", () => {
     ]);
   });
 
-  it("getAllFilenames returns envelope with trusted metadata", async () => {
+  it("getAllFilenames returns envelope with untrusted metadata", async () => {
     const result = await client.callTool({ name: "getAllFilenames" });
     const envelope = parseEnvelope(result);
 
     expect(envelope._meta).toBeDefined();
-    expect(envelope._meta.contentTrust).toBe("trusted");
+    expect(envelope._meta.contentTrust).toBe("untrusted");
     expect(envelope._meta.source).toBe("vault");
+    expect(envelope._meta.warning).toContain("Filenames are untrusted");
 
     const files = envelope.results as string[];
     expect(files).toContain("notes/hello.md");
@@ -314,15 +315,16 @@ describe("e2e smoke test", () => {
 
   // ── listFiles ────────────────────────────────────────────
 
-  it("listFiles returns trusted envelope", async () => {
+  it("listFiles returns untrusted envelope", async () => {
     const result = await client.callTool({
       name: "listFiles",
       arguments: {},
     });
     const envelope = parseEnvelope(result);
 
-    expect(envelope._meta.contentTrust).toBe("trusted");
+    expect(envelope._meta.contentTrust).toBe("untrusted");
     expect(envelope._meta.source).toBe("vault");
+    expect(envelope._meta.warning).toContain("Filenames are untrusted");
 
     const files = envelope.results as string[];
     expect(files).toContain("notes/hello.md");
